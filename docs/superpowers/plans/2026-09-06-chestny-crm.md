@@ -6,6 +6,8 @@
 
 **Architecture:** Next.js App Router на Vercel. Собственная авторизация по общему паролю (без Supabase Auth): сервер проверяет пароль, ставит подписанную httpOnly-куку, `proxy.ts` пускает по ролям. Браузер к Supabase не обращается никогда — только сервер сервисным ключом, поэтому вся авторизация живёт в одном месте. Данные персональные и всегда свежие, поэтому кеширование страниц не включаем; скорость берём серверным рендером, малым бандлом и оптимистичными обновлениями.
 
+**Поставка:** исходный архив. Vercel, Supabase и git заказчик поднимает сам.
+
 **Tech Stack:** Next.js 16.2.9, React 19.2.4, TypeScript 5, Tailwind CSS v4, Supabase (Postgres), `jose` (JWT), `recharts`, `lucide-react`, Vitest, Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-09-06-chestny-crm-design.md`
@@ -2509,56 +2511,40 @@ git commit -m "Аналитика: агрегаты в Postgres и экран д
 
 ---
 
-### Task 14: Деплой и проверка основного пути
+### Task 14: Сборка архива и проверка основного пути
+
+Vercel, Supabase и git заказчик поднимает сам. С нашей стороны — рабочий исходник,
+миграции, инструкция и зелёные тесты.
 
 **Files:**
 - Create: `playwright.config.ts`, `tests/e2e/smoke.spec.ts`
-- Create: `README.md`
+- Create: `supabase/seed.sql`, `README.md`
+- Create: `chestny-crm.zip`
 
 **Interfaces:**
 - Consumes: всё предыдущее.
-- Produces: работающий адрес CRM и зелёный smoke-тест.
+- Produces: архив, готовый к `npm install` и деплою чужими руками.
 
-- [ ] **Step 1: Завести проект Supabase и применить миграции**
-
-```bash
-supabase link --project-ref <ref>
-supabase db push
-```
-
-- [ ] **Step 2: Задать переменные окружения на Vercel**
+- [ ] **Step 1: Поднять базу локально и применить миграции**
 
 ```bash
-vercel link
-for k in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY SESSION_SECRET \
-         ADMIN_PASSWORD_HASH MASTER_PASSWORD_HASH IP_HASH_SALT \
-         TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID TRACK_ALLOWED_ORIGIN; do
-  vercel env add "$k" production
-done
+supabase start
+supabase db reset
 ```
 
-`SESSION_SECRET` и `IP_HASH_SALT` генерировать так:
+- [ ] **Step 2: Наполнить базу тестовыми данными**
 
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-```
+`supabase/seed.sql` — один админ, три мастера, четыре заявки в разных этапах,
+несколько обращений. Нужен, чтобы экраны можно было посмотреть сразу после установки.
 
-- [ ] **Step 3: Выкатить и привязать домен**
-
-```bash
-vercel --prod
-```
-
-В настройках проекта добавить домен `crm.chestny-service.kz`, у регистратора прописать CNAME, который покажет Vercel.
-
-- [ ] **Step 4: Написать smoke-тест**
+- [ ] **Step 3: Написать smoke-тест**
 
 `tests/e2e/smoke.spec.ts`:
 
 ```ts
 import { test, expect } from "@playwright/test";
 
-const MASTER_PASSWORD = process.env.E2E_MASTER_PASSWORD!;
+const MASTER_PASSWORD = process.env.E2E_MASTER_PASSWORD ?? "master-test";
 
 test("мастер входит, видит заявки и отмечает выезд", async ({ page }) => {
   await page.goto("/login");
@@ -2571,12 +2557,9 @@ test("мастер входит, видит заявки и отмечает в�
   await expect(page.getByRole("heading", { name: "Мои заявки" })).toBeVisible();
 
   const advance = page.getByRole("button", { name: "Выехал" }).first();
-  if (await advance.isVisible()) {
-    await advance.click();
-    await expect(page.getByRole("button", { name: "На месте" }).first()).toBeVisible({
-      timeout: 2000,
-    });
-  }
+  await advance.click();
+  await expect(page.getByRole("button", { name: "На месте" }).first())
+    .toBeVisible({ timeout: 2000 });
 });
 ```
 
@@ -2587,32 +2570,38 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/e2e",
-  use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
-    ...devices["Pixel 5"],
+  webServer: {
+    command: "npm run dev",
+    url: "http://localhost:3000",
+    reuseExistingServer: true,
   },
+  use: { baseURL: "http://localhost:3000", ...devices["Pixel 5"] },
 });
 ```
 
-- [ ] **Step 5: Прогнать smoke**
+- [ ] **Step 4: Прогнать всё**
 
-Run: `npx playwright test`
-Expected: PASS. Переход «Выехал» → «На месте» происходит быстрее двух секунд — это и есть проверка требования «ничего не висло».
+Run: `npm test && npm run build && npx playwright test`
+Expected: юнит-тесты зелёные, сборка без ошибок, переход «Выехал» → «На месте»
+укладывается в две секунды.
 
-- [ ] **Step 6: Проверить бюджет производительности**
+- [ ] **Step 5: Написать README**
 
-Открыть `/my` в Lighthouse в мобильном режиме.
-Expected: LCP до 1,5 с, размер клиентского JS до 120 КБ сжатыми.
+Разделы: что это, как поднять локально, как завести Supabase и применить миграции,
+как сгенерировать хеши паролей, полный список переменных окружения с пояснениями,
+как выкатить на Vercel, как добавить мастера, как сменить пароль мастеров,
+какой фрагмент вставить на сайт для захвата обращений.
 
-- [ ] **Step 7: Написать README**
+- [ ] **Step 6: Собрать архив**
 
-Короткая инструкция: как поднять локально, где взять хеши паролей, что положить в переменные окружения, как сменить пароль мастеров, как добавить мастера.
+Без `node_modules`, `.next`, `.git` и локальных `.env`. Скрипт сборки —
+`scripts/pack.mjs`, запускается `node scripts/pack.mjs`.
 
-- [ ] **Step 8: Коммит**
+- [ ] **Step 7: Коммит**
 
 ```bash
 git add -A
-git commit -m "Деплой на Vercel, smoke-тест основного пути, README"
+git commit -m "Тестовые данные, smoke-тест, README и сборка архива"
 ```
 
 ---
