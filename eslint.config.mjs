@@ -1,17 +1,20 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+// В Next 16 eslint-config-next поставляется уже в плоском формате,
+// прослойка FlatCompat не нужна и ломается на циклических ссылках.
+import coreWebVitals from "eslint-config-next/core-web-vitals";
+import typescript from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({ baseDirectory: __dirname });
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+const config = [
+  ...coreWebVitals,
+  ...typescript,
   {
-    ignores: ["node_modules/**", ".next/**", "test-results/**", "playwright-report/**"],
+    ignores: [
+      "node_modules/**",
+      ".next/**",
+      "test-results/**",
+      "playwright-report/**",
+      "next-env.d.ts",
+    ],
   },
 ];
 
-export default eslintConfig;
+export default config;
