@@ -1,8 +1,11 @@
+import { requireMasterSession } from "@/lib/auth";
 import { listMasters } from "@/lib/db/profiles";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { chooseMaster } from "./actions";
 
 export default async function WhoPage() {
+  // без пароля список имён сотрудников показывать нельзя
+  await requireMasterSession();
   const masters = await listMasters();
 
   return (

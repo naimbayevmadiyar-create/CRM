@@ -34,6 +34,17 @@ export async function requireAdmin(): Promise<SessionPayload> {
   return session;
 }
 
+/**
+ * Пароль мастера введён, но имя ещё могло быть не выбрано.
+ * Нужна отдельно от requireMaster, иначе экран выбора имени
+ * отправлял бы сам на себя по кругу.
+ */
+export async function requireMasterSession(): Promise<SessionPayload> {
+  const session = await getSession();
+  if (!session || session.role !== "master") redirect("/login");
+  return session;
+}
+
 export async function requireMaster(): Promise<SessionPayload & { masterId: string }> {
   const session = await getSession();
   if (!session || session.role !== "master") redirect("/login");
