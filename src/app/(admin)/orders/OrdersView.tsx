@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { FileText, Printer, Receipt, Search, X } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { LeadStrip } from "@/components/LeadStrip";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -47,6 +47,9 @@ export function OrdersView({
   // форма раскрыта сразу, если пришли из обращения; после создания сервер
   // уводит на /orders, и она закрывается сама
   const [formOpen, setFormOpen] = useState(Boolean(fromLead));
+  // блок реквизитов показываем, только если заказчик организация:
+  // физлицам эти поля мешают
+  const [isLegal, setIsLegal] = useState(false);
 
   const grouped = STATUSES.map((s) => ({
     status: s,
@@ -163,6 +166,35 @@ export function OrdersView({
             </Select>
 
             <Field label="Когда выехать" name="scheduled_at" type="datetime-local" />
+
+            <Field label="Бренд" name="brand" placeholder="LG, Samsung, Bosch" />
+            <Field label="Модель" name="model" placeholder="Необязательно" />
+            <Field
+              label="Серийный номер"
+              name="serial_number"
+              placeholder="Для акта приёма-передачи"
+            />
+
+            <label className="flex items-center gap-2.5 sm:col-span-2">
+              <input
+                type="checkbox"
+                name="is_legal_entity"
+                checked={isLegal}
+                onChange={(e) => setIsLegal(e.target.checked)}
+                className="h-5 w-5 accent-[var(--primary)]"
+              />
+              <span>Заказчик — юридическое лицо</span>
+            </label>
+
+            {isLegal && (
+              <>
+                <Field label="Организация" name="org_name" placeholder="ТОО «…»" />
+                <Field label="БИН" name="org_bin" inputMode="numeric" />
+                <div className="sm:col-span-2">
+                  <Field label="Юридический адрес" name="org_address" />
+                </div>
+              </>
+            )}
 
             <div className="sm:col-span-2">
               <TextArea
@@ -300,7 +332,7 @@ function OrderRow({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <select
           value={masterId}
           disabled={busy || order.status === "done" || order.status === "canceled"}
@@ -318,6 +350,20 @@ function OrderRow({
         </select>
 
         <span className="text-sm text-muted">{SOURCE_LABEL[order.source]}</span>
+
+        <span className="flex items-center gap-1">
+          <DocLink href={`/print/act/${order.id}`} icon={<FileText size={14} />}>
+            Акт
+          </DocLink>
+          <DocLink href={`/print/workorder/${order.id}`} icon={<Printer size={14} />}>
+            Заказ-наряд
+          </DocLink>
+          {order.is_legal_entity && (
+            <DocLink href={`/print/invoice/${order.id}`} icon={<Receipt size={14} />}>
+              Счёт
+            </DocLink>
+          )}
+        </span>
 
         {canCancel && (
           <div className="ml-auto">
@@ -356,5 +402,30 @@ function OrderRow({
         </p>
       )}
     </li>
+  );
+}
+
+/** Ссылка на печатный документ. Открывается в новой вкладке,
+    чтобы не терять место в списке заявок. */
+function DocLink({
+  href,
+  icon,
+  children,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      className="inline-flex items-center gap-1 rounded-[var(--radius-card)]
+                 bg-surface2 px-2.5 py-1.5 text-xs font-medium text-muted
+                 transition-colors hover:text-text"
+    >
+      {icon}
+      {children}
+    </Link>
   );
 }

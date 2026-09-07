@@ -44,6 +44,13 @@ export async function createOrderAction(
       master_id: masterId,
       // поле формы отдаёт местное время без пояса — переводим явно
       scheduled_at: localInputToIso(String(formData.get("scheduled_at") ?? "")),
+      brand: String(formData.get("brand") ?? "").trim() || undefined,
+      model: String(formData.get("model") ?? "").trim() || undefined,
+      serial_number: String(formData.get("serial_number") ?? "").trim() || undefined,
+      is_legal_entity: formData.get("is_legal_entity") === "on",
+      org_name: String(formData.get("org_name") ?? "").trim() || undefined,
+      org_bin: String(formData.get("org_bin") ?? "").trim() || undefined,
+      org_address: String(formData.get("org_address") ?? "").trim() || undefined,
       source,
       lead_id: leadId,
     });

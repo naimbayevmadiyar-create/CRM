@@ -25,6 +25,8 @@ export type LeadChannel = "whatsapp" | "phone";
 
 export type LeadSource = "google_ads" | "2gis" | "organic" | "referral" | "direct";
 
+export type PaymentMethod = "cash" | "transfer";
+
 export type ApplianceKind =
   | "washer"
   | "dishwasher"
@@ -76,6 +78,19 @@ type OrderRow = {
   master_id: string | null;
   scheduled_at: string | null;
   total_amount: number | null;
+  expenses: number;
+  expenses_note: string | null;
+  payment_method: PaymentMethod | null;
+  company_share_percent: number;
+  brand: string | null;
+  model: string | null;
+  serial_number: string | null;
+  contract_number: string | null;
+  contract_date: string | null;
+  is_legal_entity: boolean;
+  org_name: string | null;
+  org_bin: string | null;
+  org_address: string | null;
   source: LeadSource;
   lead_id: string | null;
   cancel_reason: string | null;
@@ -96,7 +111,30 @@ type OrderEventRow = {
 type AppSettingsRow = {
   id: boolean;
   master_password_version: number;
+  default_company_share_percent: number;
+  company_name: string;
+  company_legal_name: string | null;
+  company_bin: string | null;
+  company_address: string | null;
+  company_phone: string | null;
+  bank_name: string | null;
+  bank_bic: string | null;
+  bank_account: string | null;
+  diagnostics_price: number;
+  warranty_months: number;
+  repair_term_days: number;
   updated_at: string;
+};
+
+type OrderItemRow = {
+  id: string;
+  order_id: string;
+  position: number;
+  title: string;
+  price: number;
+  quantity: number;
+  warranty_months: number;
+  created_at: string;
 };
 
 type AuthAttemptRow = {
@@ -141,6 +179,12 @@ export type Database = {
         Update: Partial<AppSettingsRow>;
         Relationships: [];
       };
+      order_items: {
+        Row: OrderItemRow;
+        Insert: Optional<OrderItemRow, Exclude<keyof OrderItemRow, "order_id" | "title">>;
+        Update: Partial<OrderItemRow>;
+        Relationships: [];
+      };
       auth_attempts: {
         Row: AuthAttemptRow;
         Insert: Optional<AuthAttemptRow, "id" | "created_at">;
@@ -171,6 +215,7 @@ export type Database = {
       lead_channel: LeadChannel;
       lead_source: LeadSource;
       appliance_kind: ApplianceKind;
+      payment_method: PaymentMethod;
     };
     CompositeTypes: Record<never, never>;
   };

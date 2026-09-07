@@ -3,11 +3,12 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { Clock, MapPin, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { formatDateTime, formatPhone, formatTenge, phoneDigits } from "@/lib/format";
+import { formatDateTime, formatPhone, phoneDigits } from "@/lib/format";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { masterButtonLabel, nextForMaster, STATUS_LABEL, type Status } from "@/lib/status";
 import type { ApplianceKind } from "@/types/db";
-import { advance, finish } from "./actions";
+import { advance, finish, type FinishReport } from "./actions";
+import { FinishForm } from "./FinishForm";
 
 export type MasterOrder = {
   id: string;
@@ -21,17 +22,21 @@ export type MasterOrder = {
   scheduled_at: string | null;
 };
 
-export function OrderCard({ order }: { order: MasterOrder }) {
+export function OrderCard({
+  order,
+  defaultSharePercent,
+}: {
+  order: MasterOrder;
+  defaultSharePercent: number;
+}) {
   // оптимистичный этап: подпись кнопки меняется сразу, не дожидаясь сервера
   const [status, setStatus] = useOptimistic(order.status);
   const [pending, startTransition] = useTransition();
-  const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const label = masterButtonLabel(status);
-  const askAmount = nextForMaster(status) === "done";
+  const askReport = nextForMaster(status) === "done";
   const digits = phoneDigits(order.client_phone);
-  const parsedAmount = Number(amount.replace(/\D/g, ""));
 
   function onAdvance() {
     setError(null);
@@ -43,15 +48,11 @@ export function OrderCard({ order }: { order: MasterOrder }) {
     });
   }
 
-  function onFinish() {
-    if (!parsedAmount) {
-      setError("Впишите сумму, за сколько сделали");
-      return;
-    }
+  function onFinish(report: FinishReport) {
     setError(null);
     startTransition(async () => {
       setStatus("done");
-      const result = await finish(order.id, parsedAmount);
+      const result = await finish(order.id, report);
       if (result.error) setError(result.error);
     });
   }
@@ -115,25 +116,12 @@ export function OrderCard({ order }: { order: MasterOrder }) {
         )}
       </div>
 
-      {askAmount ? (
-        <div className="mt-4 space-y-3">
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
-            inputMode="numeric"
-            enterKeyHint="done"
-            placeholder="Сумма, ₸"
-            aria-label="Сумма за ремонт в тенге"
-            className="h-14 w-full rounded-[var(--radius-card)] border border-border
-                       bg-surface px-4 text-2xl outline-none focus:border-primary"
-          />
-          {parsedAmount > 0 && (
-            <p className="text-center text-sm text-muted">{formatTenge(parsedAmount)}</p>
-          )}
-          <Button size="lg" className="w-full" onClick={onFinish} disabled={pending}>
-            Готово
-          </Button>
-        </div>
+      {askReport ? (
+        <FinishForm
+          defaultSharePercent={defaultSharePercent}
+          pending={pending}
+          onSubmit={onFinish}
+        />
       ) : label ? (
         <Button size="lg" className="mt-4 w-full" onClick={onAdvance} disabled={pending}>
           {label}

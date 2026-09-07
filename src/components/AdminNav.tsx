@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/leads", label: "Обращения" },
   { href: "/masters", label: "Мастера" },
   { href: "/analytics", label: "Аналитика" },
+  { href: "/settings", label: "Настройки" },
 ];
 
 export function AdminNav({ action }: { action?: React.ReactNode }) {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireMaster } from "@/lib/auth";
 import { getProfile } from "@/lib/db/profiles";
 import { listOrdersForMaster } from "@/lib/db/orders";
+import { getDefaultSharePercent } from "@/lib/db/settings";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -12,9 +13,10 @@ export const metadata: Metadata = { title: "Мои заявки" };
 
 export default async function MyOrdersPage() {
   const session = await requireMaster();
-  const [orders, profile] = await Promise.all([
+  const [orders, profile, sharePercent] = await Promise.all([
     listOrdersForMaster(session.masterId),
     getProfile(session.masterId),
+    getDefaultSharePercent(),
   ]);
 
   return (
@@ -41,7 +43,7 @@ export default async function MyOrdersPage() {
         <ul className="safe-bottom space-y-4">
           {orders.map((order) => (
             <li key={order.id}>
-              <OrderCard order={order} />
+              <OrderCard order={order} defaultSharePercent={sharePercent} />
             </li>
           ))}
         </ul>
