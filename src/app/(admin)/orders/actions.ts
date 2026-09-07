@@ -1,13 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { assignMaster, cancelOrder, createOrder, getOrder } from "@/lib/db/orders";
 import { attachLeadToOrder } from "@/lib/db/leads";
 import { notifyOrder } from "@/lib/telegram";
-import { APPLIANCE_LABEL } from "@/lib/appliance";
+import { APPLIANCES, APPLIANCE_LABEL } from "@/lib/appliance";
+import { localInputToIso } from "@/lib/format";
 import { SOURCES, type Source } from "@/lib/source";
-import { APPLIANCES } from "@/lib/appliance";
 import type { ApplianceKind } from "@/types/db";
 
 export type OrderFormState = { ok?: true; error?: string };
@@ -41,6 +42,8 @@ export async function createOrderAction(
       appliance,
       problem: String(formData.get("problem") ?? "").trim() || undefined,
       master_id: masterId,
+      // поле формы отдаёт местное время без пояса — переводим явно
+      scheduled_at: localInputToIso(String(formData.get("scheduled_at") ?? "")),
       source,
       lead_id: leadId,
     });
@@ -62,7 +65,10 @@ export async function createOrderAction(
 
   revalidatePath("/orders");
   revalidatePath("/leads");
-  return { ok: true };
+
+  // Уводим на чистый адрес: форма закрывается сама, ?lead из строки уходит.
+  // Делать это эффектом на клиенте не нужно — сервер и так знает, что готово.
+  redirect("/orders");
 }
 
 export async function assignAction(orderId: string, masterId: string) {

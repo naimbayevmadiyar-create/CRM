@@ -56,5 +56,9 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
 
   await db().from("auth_attempts").insert({ ip_hash: hash });
+  // таблица попыток нужна только на длину окна — старое чистим сразу,
+  // иначе она растёт вечно и без всякой пользы
+  await db().from("auth_attempts").delete().lt("created_at", since);
+
   return { error: "Неверный пароль" };
 }

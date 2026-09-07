@@ -40,15 +40,70 @@ export async function listOrdersForMaster(masterId: string): Promise<Order[]> {
   return data as Order[];
 }
 
-export async function listOrdersForAdmin(limit = 100): Promise<Order[]> {
-  const { data, error } = await db()
-    .from("orders")
-    .select(COLUMNS)
+export type OrdersFilter = {
+  /** Поиск по телефону, имени или адресу. */
+  query?: string;
+  /** Только один этап; «активные» — все рабочие сразу. */
+  status?: Status | "active";
+  masterId?: string;
+  limit?: number;
+};
+
+/**
+ * Заявки для админки. Фильтрация идёт в базе, а не в браузере:
+ * на клиент уезжает ровно то, что показано на экране.
+ */
+export async function listOrdersForAdmin(filter: OrdersFilter = {}): Promise<Order[]> {
+  let request = db().from("orders").select(COLUMNS);
+
+  if (filter.status === "active") {
+    request = request.in("status", ACTIVE_STATUSES);
+  } else if (filter.status) {
+    request = request.eq("status", filter.status);
+  }
+
+  if (filter.masterId) request = request.eq("master_id", filter.masterId);
+
+  const query = filter.query?.trim();
+  if (query) {
+    // цифры телефона ищем отдельно: человек может ввести номер с пробелами
+    const digits = query.replace(/\D/g, "");
+    const parts = [
+      `client_name.ilike.%${query}%`,
+      `address.ilike.%${query}%`,
+      `problem.ilike.%${query}%`,
+    ];
+    if (digits.length >= 3) parts.push(`client_phone.ilike.%${digits}%`);
+    request = request.or(parts.join(","));
+  }
+
+  const { data, error } = await request
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(filter.limit ?? 100);
 
   if (error) throw error;
   return data as Order[];
+}
+
+/**
+ * Телефоны, которые обращались больше одного раза.
+ *
+ * Для сервиса ремонта повторный клиент дешевле нового: его не надо покупать
+ * в рекламе. Диспетчер должен видеть таких сразу — и по-другому с ними
+ * разговаривать.
+ */
+export async function findRepeatPhones(phones: string[]): Promise<Set<string>> {
+  const unique = [...new Set(phones)].filter(Boolean);
+  if (unique.length === 0) return new Set();
+
+  const { data, error } = await db()
+    .from("client_stats")
+    .select("client_phone, orders_count")
+    .in("client_phone", unique)
+    .gt("orders_count", 1);
+
+  if (error) throw error;
+  return new Set((data ?? []).map((row) => row.client_phone).filter(Boolean) as string[]);
 }
 
 export async function getOrder(id: string): Promise<Order | null> {

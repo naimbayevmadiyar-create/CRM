@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { getAnalytics } from "@/lib/db/analytics";
 import { AnalyticsView } from "./AnalyticsView";
+
+export const metadata: Metadata = { title: "Аналитика" };
 
 const ALLOWED_DAYS = [7, 30, 90];
 

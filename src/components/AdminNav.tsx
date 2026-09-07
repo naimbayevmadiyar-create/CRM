@@ -11,12 +11,12 @@ const LINKS = [
   { href: "/analytics", label: "Аналитика" },
 ];
 
-export function AdminNav() {
+export function AdminNav({ action }: { action?: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-10 border-b border-border bg-surface/85 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 py-2.5">
+    <nav className="safe-top sticky top-0 z-10 border-b border-border bg-surface/85 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-x-auto px-3 py-2.5">
         {LINKS.map((link) => {
           const active = pathname.startsWith(link.href);
           return (
@@ -33,6 +33,7 @@ export function AdminNav() {
             </Link>
           );
         })}
+        {action && <div className="ml-auto shrink-0">{action}</div>}
       </div>
     </nav>
   );

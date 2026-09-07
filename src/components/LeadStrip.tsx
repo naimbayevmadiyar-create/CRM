@@ -1,5 +1,4 @@
-"use client";
-
+import Link from "next/link";
 import { MessageCircle, Phone } from "lucide-react";
 import { formatWhen } from "@/lib/format";
 import { SOURCE_LABEL } from "@/lib/source";
@@ -7,16 +6,12 @@ import type { Lead } from "@/lib/db/leads";
 
 /**
  * Необработанное обращение: человек кликнул на сайте, но заявки ещё нет.
- * Диспетчер видит, когда и откуда пришли, и одной кнопкой заводит заявку
- * с уже проставленным источником.
+ *
+ * Кнопка ведёт на /orders?lead=<id> — форма там откроется сама и подставит
+ * источник. Обычная ссылка, а не обработчик: работает без JavaScript,
+ * её можно открыть в новой вкладке и переслать.
  */
-export function LeadStrip({
-  lead,
-  onCreate,
-}: {
-  lead: Lead;
-  onCreate: (lead: Lead) => void;
-}) {
+export function LeadStrip({ lead }: { lead: Lead }) {
   const Icon = lead.channel === "whatsapp" ? MessageCircle : Phone;
 
   return (
@@ -32,18 +27,18 @@ export function LeadStrip({
         </p>
         <p className="truncate text-sm text-muted">
           {SOURCE_LABEL[lead.source]}
-          {lead.page_anchor ? ` · экран ${lead.page_anchor}` : ""} · {formatWhen(lead.created_at)}
+          {lead.page_anchor ? ` · экран ${lead.page_anchor}` : ""} ·{" "}
+          {formatWhen(lead.created_at)}
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={() => onCreate(lead)}
+      <Link
+        href={`/orders?lead=${lead.id}`}
         className="shrink-0 rounded-[var(--radius-card)] bg-primary px-3.5 py-2
                    text-sm font-medium text-primaryink active:scale-[0.98]"
       >
         Создать заявку
-      </button>
+      </Link>
     </li>
   );
 }

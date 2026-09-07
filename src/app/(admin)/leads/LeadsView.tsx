@@ -1,24 +1,21 @@
-"use client";
-
-import { useMemo } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LeadStrip } from "@/components/LeadStrip";
-import { SOURCE_LABEL, SOURCES } from "@/lib/source";
+import { SOURCE_LABEL, SOURCES, type Source } from "@/lib/source";
 import type { Lead } from "@/lib/db/leads";
 
+/**
+ * Серверный компонент: здесь нет ни одного обработчика, только разметка.
+ * Значит на клиент не уезжает ни байта JavaScript.
+ */
 export function LeadsView({ leads }: { leads: Lead[] }) {
-  // сводка по источникам за то же окно, что и список — чтобы было видно,
-  // какой канал вообще шевелится
-  const bySource = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const lead of leads) {
-      counts.set(lead.source, (counts.get(lead.source) ?? 0) + 1);
-    }
-    return SOURCES.filter((s) => counts.has(s)).map((s) => ({
-      source: s,
-      count: counts.get(s) ?? 0,
-    }));
-  }, [leads]);
+  const counts = new Map<Source, number>();
+  for (const lead of leads) {
+    counts.set(lead.source, (counts.get(lead.source) ?? 0) + 1);
+  }
+  const bySource = SOURCES.filter((s) => counts.has(s)).map((s) => ({
+    source: s,
+    count: counts.get(s) ?? 0,
+  }));
 
   return (
     <div className="space-y-6">
@@ -50,14 +47,7 @@ export function LeadsView({ leads }: { leads: Lead[] }) {
       ) : (
         <ul className="space-y-2">
           {leads.map((lead) => (
-            <LeadStrip
-              key={lead.id}
-              lead={lead}
-              onCreate={() => {
-                // заводить заявку удобнее на экране заявок: там сразу список мастеров
-                window.location.href = "/orders";
-              }}
-            />
+            <LeadStrip key={lead.id} lead={lead} />
           ))}
         </ul>
       )}

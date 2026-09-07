@@ -63,6 +63,17 @@ export async function countRecentByIp(ipHash: string, seconds: number): Promise<
   return count ?? 0;
 }
 
+export async function getLead(id: string): Promise<Lead | null> {
+  const { data, error } = await db()
+    .from("leads")
+    .select(COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as Lead) ?? null;
+}
+
 export async function attachLeadToOrder(leadId: string, orderId: string): Promise<void> {
   const { error } = await db().from("leads").update({ order_id: orderId }).eq("id", leadId);
   if (error) throw error;

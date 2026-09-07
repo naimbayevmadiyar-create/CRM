@@ -1,9 +1,9 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { MapPin, Phone } from "lucide-react";
+import { Clock, MapPin, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { formatPhone } from "@/lib/format";
+import { formatDateTime, formatPhone, formatTenge, phoneDigits } from "@/lib/format";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { masterButtonLabel, nextForMaster, STATUS_LABEL, type Status } from "@/lib/status";
 import type { ApplianceKind } from "@/types/db";
@@ -18,6 +18,7 @@ export type MasterOrder = {
   appliance: ApplianceKind;
   problem: string | null;
   status: Status;
+  scheduled_at: string | null;
 };
 
 export function OrderCard({ order }: { order: MasterOrder }) {
@@ -29,6 +30,8 @@ export function OrderCard({ order }: { order: MasterOrder }) {
 
   const label = masterButtonLabel(status);
   const askAmount = nextForMaster(status) === "done";
+  const digits = phoneDigits(order.client_phone);
+  const parsedAmount = Number(amount.replace(/\D/g, ""));
 
   function onAdvance() {
     setError(null);
@@ -41,15 +44,14 @@ export function OrderCard({ order }: { order: MasterOrder }) {
   }
 
   function onFinish() {
-    const value = Number(amount.replace(/\D/g, ""));
-    if (!value) {
-      setError("Впишите сумму");
+    if (!parsedAmount) {
+      setError("Впишите сумму, за сколько сделали");
       return;
     }
     setError(null);
     startTransition(async () => {
       setStatus("done");
-      const result = await finish(order.id, value);
+      const result = await finish(order.id, parsedAmount);
       if (result.error) setError(result.error);
     });
   }
@@ -61,22 +63,42 @@ export function OrderCard({ order }: { order: MasterOrder }) {
           {order.client_name || "Клиент"}{" "}
           <span className="font-normal text-muted">№{order.number}</span>
         </h2>
-        <span className="shrink-0 text-sm text-muted">{STATUS_LABEL[status]}</span>
+        <span className="shrink-0 text-sm text-muted" aria-live="polite">
+          {STATUS_LABEL[status]}
+        </span>
       </div>
 
-      <p className="mb-3 text-muted">{APPLIANCE_LABEL[order.appliance]}</p>
+      <p className="text-muted">{APPLIANCE_LABEL[order.appliance]}</p>
 
-      {order.address && <p className="mb-1 text-lg">{order.address}</p>}
-      {order.problem && <p className="mb-4 text-muted">{order.problem}</p>}
+      {order.scheduled_at && (
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-surface2 px-2.5 py-1 text-sm">
+          <Clock size={15} aria-hidden />
+          {formatDateTime(order.scheduled_at)}
+        </p>
+      )}
 
-      <div className="mb-4 flex gap-2">
+      {order.address && <p className="mt-3 text-lg">{order.address}</p>}
+      {order.problem && <p className="mt-1 text-muted">{order.problem}</p>}
+
+      <div className="mt-4 flex gap-2">
         <a
-          href={`tel:${order.client_phone}`}
+          href={`tel:+${digits}`}
           className="inline-flex h-12 flex-1 items-center justify-center gap-2
                      rounded-[var(--radius-card)] bg-surface2 font-medium"
         >
           <Phone size={18} aria-hidden />
           {formatPhone(order.client_phone)}
+        </a>
+
+        <a
+          href={`https://wa.me/${digits}`}
+          target="_blank"
+          rel="noopener"
+          aria-label="Написать клиенту в WhatsApp"
+          className="inline-flex h-12 w-12 shrink-0 items-center justify-center
+                     rounded-[var(--radius-card)] bg-surface2"
+        >
+          <MessageCircle size={18} aria-hidden />
         </a>
 
         {order.address && (
@@ -94,23 +116,26 @@ export function OrderCard({ order }: { order: MasterOrder }) {
       </div>
 
       {askAmount ? (
-        <div className="space-y-3">
+        <div className="mt-4 space-y-3">
           <input
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
             inputMode="numeric"
             enterKeyHint="done"
             placeholder="Сумма, ₸"
             aria-label="Сумма за ремонт в тенге"
             className="h-14 w-full rounded-[var(--radius-card)] border border-border
-                       bg-surface px-4 text-xl outline-none focus:border-primary"
+                       bg-surface px-4 text-2xl outline-none focus:border-primary"
           />
+          {parsedAmount > 0 && (
+            <p className="text-center text-sm text-muted">{formatTenge(parsedAmount)}</p>
+          )}
           <Button size="lg" className="w-full" onClick={onFinish} disabled={pending}>
             Готово
           </Button>
         </div>
       ) : label ? (
-        <Button size="lg" className="w-full" onClick={onAdvance} disabled={pending}>
+        <Button size="lg" className="mt-4 w-full" onClick={onAdvance} disabled={pending}>
           {label}
         </Button>
       ) : null}

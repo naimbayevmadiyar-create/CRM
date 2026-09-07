@@ -1,65 +1,123 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
+import { Search, X } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { LeadStrip } from "@/components/LeadStrip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Field, Select, TextArea } from "@/components/ui/Field";
-import { formatPhone, formatTenge, formatWhen } from "@/lib/format";
+import { formatDateTime, formatPhone, formatTenge, formatWhen } from "@/lib/format";
 import { APPLIANCES, APPLIANCE_LABEL } from "@/lib/appliance";
 import { SOURCE_LABEL } from "@/lib/source";
-import { STATUS_LABEL, type Status } from "@/lib/status";
+import { STATUS_LABEL, STATUSES } from "@/lib/status";
 import type { Order } from "@/lib/db/orders";
 import type { Lead } from "@/lib/db/leads";
 import type { Profile } from "@/lib/db/profiles";
-import { assignAction, createOrderAction, type OrderFormState } from "./actions";
+import { assignAction, cancelAction, createOrderAction, type OrderFormState } from "./actions";
 
 const INITIAL: OrderFormState = {};
 
-const GROUPS: Status[] = ["new", "assigned", "on_the_way", "in_progress", "done", "canceled"];
+const FILTERS: { value: string; label: string }[] = [
+  { value: "active", label: "В работе" },
+  { value: "", label: "Все" },
+  ...STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+];
 
 export function OrdersView({
   orders,
   masters,
   leads,
+  fromLead,
+  query,
+  status,
+  repeatPhones,
 }: {
   orders: Order[];
   masters: Profile[];
   leads: Lead[];
+  fromLead: Lead | null;
+  query: string;
+  status: string;
+  repeatPhones: string[];
 }) {
+  const repeat = new Set(repeatPhones);
   const [state, action, pending] = useActionState(createOrderAction, INITIAL);
-  const [formOpen, setFormOpen] = useState(false);
-  const [fromLead, setFromLead] = useState<Lead | null>(null);
+  // форма раскрыта сразу, если пришли из обращения; после создания сервер
+  // уводит на /orders, и она закрывается сама
+  const [formOpen, setFormOpen] = useState(Boolean(fromLead));
 
-  function openFromLead(lead: Lead) {
-    setFromLead(lead);
-    setFormOpen(true);
-  }
-
-  function openBlank() {
-    setFromLead(null);
-    setFormOpen(true);
-  }
-
-  const grouped = GROUPS.map((status) => ({
-    status,
-    items: orders.filter((o) => o.status === status),
+  const grouped = STATUSES.map((s) => ({
+    status: s,
+    items: orders.filter((o) => o.status === s),
   })).filter((g) => g.items.length > 0);
 
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Заявки</h1>
-        <Button onClick={openBlank}>Новая заявка</Button>
+        <Button onClick={() => setFormOpen((v) => !v)}>
+          {formOpen ? "Свернуть" : "Новая заявка"}
+        </Button>
       </header>
+
+      {/* Поиск и фильтр — обычная форма: фильтрация идёт на сервере,
+          адрес можно скопировать и переслать. */}
+      <form method="get" className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-56 flex-1">
+          <Search
+            size={17}
+            aria-hidden
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+          />
+          <input
+            name="q"
+            defaultValue={query}
+            placeholder="Телефон, имя, адрес"
+            aria-label="Поиск по заявкам"
+            className="h-11 w-full rounded-[var(--radius-card)] border border-border bg-surface
+                       pl-10 pr-4 outline-none focus:border-primary"
+          />
+        </div>
+
+        <select
+          name="status"
+          defaultValue={status}
+          aria-label="Фильтр по этапу"
+          className="h-11 rounded-[var(--radius-card)] border border-border bg-surface px-3"
+        >
+          {FILTERS.map((f) => (
+            <option key={f.value} value={f.value}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+
+        <Button type="submit" variant="ghost">
+          Найти
+        </Button>
+
+        {(query || status) && (
+          <Link
+            href="/orders"
+            className="inline-flex h-11 items-center gap-1 rounded-[var(--radius-card)]
+                       px-3 text-sm text-muted"
+          >
+            <X size={15} aria-hidden />
+            Сбросить
+          </Link>
+        )}
+      </form>
 
       {leads.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-muted">Необработанные обращения</h2>
+          <h2 className="mb-2 text-sm font-medium text-muted">
+            Необработанные обращения
+          </h2>
           <ul className="space-y-2">
             {leads.map((lead) => (
-              <LeadStrip key={lead.id} lead={lead} onCreate={openFromLead} />
+              <LeadStrip key={lead.id} lead={lead} />
             ))}
           </ul>
         </section>
@@ -104,8 +162,14 @@ export function OrdersView({
               ))}
             </Select>
 
+            <Field label="Когда выехать" name="scheduled_at" type="datetime-local" />
+
             <div className="sm:col-span-2">
-              <TextArea label="Что случилось" name="problem" placeholder="Не отжимает, шумит…" />
+              <TextArea
+                label="Что случилось"
+                name="problem"
+                placeholder="Не отжимает, шумит при сливе…"
+              />
             </div>
 
             {fromLead && (
@@ -133,7 +197,14 @@ export function OrdersView({
       )}
 
       {orders.length === 0 ? (
-        <EmptyState title="Заявок пока нет" hint="Создайте первую или дождитесь обращения с сайта." />
+        <EmptyState
+          title={query || status ? "Ничего не нашлось" : "Заявок пока нет"}
+          hint={
+            query || status
+              ? "Попробуйте другой запрос или сбросьте фильтр."
+              : "Создайте первую или дождитесь обращения с сайта."
+          }
+        />
       ) : (
         grouped.map((group) => (
           <section key={group.status}>
@@ -142,7 +213,12 @@ export function OrdersView({
             </h2>
             <ul className="space-y-2">
               {group.items.map((order) => (
-                <OrderRow key={order.id} order={order} masters={masters} />
+                <OrderRow
+                  key={order.id}
+                  order={order}
+                  masters={masters}
+                  isRepeat={repeat.has(order.client_phone)}
+                />
               ))}
             </ul>
           </section>
@@ -152,14 +228,42 @@ export function OrdersView({
   );
 }
 
-function OrderRow({ order, masters }: { order: Order; masters: Profile[] }) {
-  const [saving, setSaving] = useState(false);
+function OrderRow({
+  order,
+  masters,
+  isRepeat,
+}: {
+  order: Order;
+  masters: Profile[];
+  isRepeat: boolean;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [masterId, setMasterId] = useState(order.master_id ?? "");
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function onAssign(masterId: string) {
-    if (!masterId) return;
-    setSaving(true);
-    await assignAction(order.id, masterId);
-    setSaving(false);
+  const canCancel = order.status !== "done" && order.status !== "canceled";
+
+  async function onAssign(next: string) {
+    if (!next) return;
+    setMasterId(next); // мгновенный отклик, сервер догонит
+    setBusy(true);
+    setError(null);
+    const result = await assignAction(order.id, next);
+    if ("error" in result && result.error) {
+      setMasterId(order.master_id ?? "");
+      setError(result.error);
+    }
+    setBusy(false);
+  }
+
+  async function onCancel() {
+    setBusy(true);
+    setError(null);
+    const result = await cancelAction(order.id, "Отменена диспетчером");
+    if ("error" in result && result.error) setError(result.error);
+    setBusy(false);
+    setConfirmCancel(false);
   }
 
   return (
@@ -169,6 +273,14 @@ function OrderRow({ order, masters }: { order: Order; masters: Profile[] }) {
           №{order.number} · {order.client_name || "Клиент"}
         </span>
         <StatusPill status={order.status} />
+        {isRepeat && (
+          <span
+            title="Обращается не в первый раз"
+            className="rounded-full bg-success/12 px-2.5 py-1 text-xs font-medium text-success"
+          >
+            Повторный
+          </span>
+        )}
         <span className="text-sm text-muted">{formatWhen(order.created_at)}</span>
         {order.total_amount != null && (
           <span className="ml-auto font-medium">{formatTenge(order.total_amount)}</span>
@@ -182,13 +294,20 @@ function OrderRow({ order, masters }: { order: Order; masters: Profile[] }) {
 
       {order.problem && <p className="mt-1 text-sm text-muted">{order.problem}</p>}
 
-      <div className="mt-3 flex items-center gap-3">
+      {order.scheduled_at && (
+        <p className="mt-1 text-sm text-muted">
+          Выезд: {formatDateTime(order.scheduled_at)}
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         <select
-          value={order.master_id ?? ""}
-          disabled={saving}
+          value={masterId}
+          disabled={busy || order.status === "done" || order.status === "canceled"}
           onChange={(e) => onAssign(e.target.value)}
           aria-label="Назначить мастера"
-          className="h-10 rounded-[var(--radius-card)] border border-border bg-surface px-3 text-sm"
+          className="h-10 rounded-[var(--radius-card)] border border-border bg-surface px-3 text-sm
+                     disabled:opacity-60"
         >
           <option value="">Мастер не назначен</option>
           {masters.map((m) => (
@@ -197,8 +316,45 @@ function OrderRow({ order, masters }: { order: Order; masters: Profile[] }) {
             </option>
           ))}
         </select>
+
         <span className="text-sm text-muted">{SOURCE_LABEL[order.source]}</span>
+
+        {canCancel && (
+          <div className="ml-auto">
+            {confirmCancel ? (
+              <span className="flex items-center gap-2 text-sm">
+                <span className="text-muted">Точно отменить?</span>
+                <button
+                  onClick={onCancel}
+                  disabled={busy}
+                  className="font-medium text-danger underline underline-offset-4"
+                >
+                  Да
+                </button>
+                <button
+                  onClick={() => setConfirmCancel(false)}
+                  className="text-muted underline underline-offset-4"
+                >
+                  Нет
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="text-sm text-muted underline underline-offset-4"
+              >
+                Отменить
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
     </li>
   );
 }
