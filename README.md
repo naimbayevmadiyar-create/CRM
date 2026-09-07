@@ -34,7 +34,15 @@ npm run dev
 supabase/migrations/0001_schema.sql
 supabase/migrations/0002_rls.sql
 supabase/migrations/0003_analytics.sql
+supabase/migrations/0004_service_role_grants.sql
 ```
+
+После этого выполните `supabase/check.sql` — он покажет, всё ли с правами
+в порядке. Все строки должны быть со словом «ок».
+
+> Права сервисной роли выдаёт миграция `0004`, а не настройка проекта.
+> Галочка «Automatically expose new tables» при создании проекта на это
+> не влияет — можно оставить её выключенной.
 
 **Через CLI:**
 

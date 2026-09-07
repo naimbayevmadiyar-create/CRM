@@ -19,11 +19,24 @@ revoke all on all tables    in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
 revoke all on all functions in schema public from anon, authenticated;
 
+-- А сервисной роли права нужны явно. Supabase выдаёт их сам только при
+-- включённой настройке «Automatically expose new tables»; полагаться на
+-- переключатель в панели нельзя — схема должна разворачиваться одинаково
+-- на любом проекте. Подробнее в миграции 0004.
+grant usage on schema public to service_role;
+grant all privileges on all tables    in schema public to service_role;
+grant all privileges on all sequences in schema public to service_role;
+
 -- Представление наследует права базовых таблиц, но закроем явно.
 revoke all on client_stats from anon, authenticated;
 
--- Новые объекты по умолчанию тоже закрыты.
+-- Новые объекты по умолчанию тоже закрыты для анонимных ролей
+-- и открыты для сервисной.
 alter default privileges in schema public
   revoke all on tables from anon, authenticated;
 alter default privileges in schema public
   revoke all on sequences from anon, authenticated;
+alter default privileges in schema public
+  grant all on tables to service_role;
+alter default privileges in schema public
+  grant all on sequences to service_role;
