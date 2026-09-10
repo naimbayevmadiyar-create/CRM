@@ -229,10 +229,10 @@ export async function closeOrderWithReport(
     throw new Error("Сумма должна быть целым числом");
   }
   if (!Number.isInteger(report.expenses) || report.expenses < 0) {
-    throw new Error("Расход должен быть целым числом");
+    throw new Error("Стоимость запчастей должна быть целым числом");
   }
   if (report.expenses > report.total) {
-    throw new Error("Расход больше согласованной суммы — проверьте цифры");
+    throw new Error("Запчасти дороже согласованной суммы — проверьте цифры");
   }
 
   const order = await getOrder(id);

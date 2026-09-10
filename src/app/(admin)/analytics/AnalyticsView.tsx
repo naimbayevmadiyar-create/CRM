@@ -89,14 +89,14 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
                 hint="согласовано с клиентами"
               />
               <Tile
-                label="Расход на запчасти"
+                label="Запчасти"
                 value={formatTenge(data.expenses)}
-                hint="потратили мастера"
+                hint="закупила компания"
               />
               <Tile
                 label="Чистыми"
                 value={formatTenge(data.net)}
-                hint="оборот минус расход"
+                hint="оборот минус запчасти"
               />
             </div>
 

@@ -9,8 +9,8 @@ import { calcSettlement, PAYMENT_LABEL, type PaymentMethod } from "@/lib/settlem
  * Раскладка по деньгам закрытого заказа.
  *
  * Свёрнута до одной строки с общей суммой: в списке из тридцати заявок
- * подробности мешают. Раскрывается по нажатию — тогда видно, на что был
- * расход и сколько ушло в кассу.
+ * подробности мешают. Раскрывается по нажатию — тогда видно, на какие
+ * запчасти ушли деньги компании и сколько мастер внёс в кассу.
  */
 export function OrderMoney({
   total,
@@ -62,14 +62,15 @@ export function OrderMoney({
 
           {expenses > 0 && (
             <Row
-              label={expensesNote ? `Расход · ${expensesNote}` : "Расход на запчасти"}
+              label={expensesNote ? `Запчасти · ${expensesNote}` : "Запчасти"}
               value={`− ${formatTenge(expenses)}`}
             />
           )}
 
           <Row label="Чистыми" value={formatTenge(settlement.net)} />
+          <Row label="Мастеру" value={formatTenge(settlement.masterCut)} />
           <Row
-            label={`Доля компании · ${settlement.sharePercent}%`}
+            label={`Прибыль компании · ${settlement.sharePercent}%`}
             value={formatTenge(settlement.companyCut)}
             strong
           />
@@ -80,7 +81,7 @@ export function OrderMoney({
                 label={
                   settlement.direction === "master_owes"
                     ? `${PAYMENT_LABEL[paymentMethod]} · мастер вносит`
-                    : `${PAYMENT_LABEL[paymentMethod]} · вернуть мастеру`
+                    : `${PAYMENT_LABEL[paymentMethod]} · выплатить мастеру`
                 }
                 value={formatTenge(settlement.amount)}
               />

@@ -19,7 +19,7 @@ alter table orders
 comment on column orders.total_amount is
   'Согласовано с клиентом, тенге';
 comment on column orders.expenses is
-  'Расход мастера на запчасти, тенге. Покупает из своих, компания возмещает';
+  'Стоимость запчастей по заказу, тенге. Запчасти покупает компания';
 comment on column orders.company_share_percent is
   'Доля компании от чистых на момент закрытия заказа';
 

@@ -61,7 +61,7 @@ export function FinishForm({
       return;
     }
     if (tooMuchExpenses) {
-      setError("Расход больше согласованной суммы — проверьте цифры");
+      setError("Запчасти дороже согласованной суммы — проверьте цифры");
       return;
     }
     if (!payment) {
@@ -97,14 +97,14 @@ export function FinishForm({
         autoFocus
       />
 
-      <Money label="Расход на запчасти" value={expenses} onChange={setExpenses} />
+      <Money label="Запчасти (деньги компании)" value={expenses} onChange={setExpenses} />
 
       {expensesValue > 0 && (
         <input
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="На что потратили"
-          aria-label="На что был расход"
+          placeholder="На какие запчасти"
+          aria-label="На какие запчасти ушли деньги"
           className="h-12 w-full rounded-[var(--radius-card)] border border-border
                      bg-surface px-4 outline-none focus:border-primary"
         />
@@ -135,6 +135,7 @@ export function FinishForm({
       {totalValue > 0 && (
         <dl className="rounded-[var(--radius-card)] bg-surface2 p-4 text-[15px]">
           <Row label="Чистыми" value={formatTenge(settlement.net)} />
+          <Row label="Ваш заработок" value={formatTenge(settlement.masterCut)} />
           <Row
             label={`Доля компании · ${settlement.sharePercent}%`}
             value={formatTenge(settlement.companyCut)}
@@ -172,17 +173,17 @@ export function FinishForm({
               label={
                 settlement.direction === "master_owes"
                   ? "Внести в кассу"
-                  : "Компания вернёт вам"
+                  : "Компания переведёт вам"
               }
               value={formatTenge(settlement.amount)}
               strong
             />
           </div>
 
-          {settlement.direction === "company_owes" && expensesValue > 0 && (
+          {settlement.direction === "master_owes" && expensesValue > 0 && (
             <p className="mt-1 text-xs text-muted">
-              Ваша доля {formatTenge(settlement.masterCut)} плюс запчасти{" "}
-              {formatTenge(expensesValue)}
+              Доля компании {formatTenge(settlement.companyCut)} плюс её же деньги
+              за запчасти {formatTenge(expensesValue)}
             </p>
           )}
         </dl>
@@ -190,7 +191,7 @@ export function FinishForm({
 
       {tooMuchExpenses && (
         <p role="alert" className="text-sm text-danger">
-          Расход больше согласованной суммы — проверьте цифры
+          Запчасти дороже согласованной суммы — проверьте цифры
         </p>
       )}
 
