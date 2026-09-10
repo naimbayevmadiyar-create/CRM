@@ -1,22 +1,45 @@
 import "server-only";
 import { db } from "@/lib/supabase";
 
-export type SourceRow = { source: string; orders: number; revenue: number };
+export type SourceRow = {
+  source: string;
+  orders: number;
+  turnover: number;
+  net: number;
+  company_cut: number;
+};
+
 export type MasterRow = {
   master: string;
   orders: number;
-  revenue: number;
+  turnover: number;
+  net: number;
+  company_cut: number;
   avg_minutes: number | null;
 };
-export type ApplianceRow = { appliance: string; orders: number; revenue: number };
+
+export type ApplianceRow = { appliance: string; orders: number; turnover: number };
 
 export type Analytics = {
   leads: number;
   orders: number;
   done: number;
   canceled: number;
-  revenue: number;
+
+  /** Сколько согласовано с клиентами — цена ремонтов. */
+  turnover: number;
+  /** Расход мастеров на запчасти. */
+  expenses: number;
+  /** Оборот минус расход. */
+  net: number;
+  /** Доля компании от чистых — её реальная прибыль. */
+  company_cut: number;
+  /** Средняя цена одного ремонта для клиента. */
   avg_check: number;
+
+  cash: number;
+  transfer: number;
+
   median_minutes_to_departure: number | null;
   by_source: SourceRow[];
   by_master: MasterRow[];
@@ -28,8 +51,13 @@ const EMPTY: Analytics = {
   orders: 0,
   done: 0,
   canceled: 0,
-  revenue: 0,
+  turnover: 0,
+  expenses: 0,
+  net: 0,
+  company_cut: 0,
   avg_check: 0,
+  cash: 0,
+  transfer: 0,
   median_minutes_to_departure: null,
   by_source: [],
   by_master: [],

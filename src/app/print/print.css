@@ -78,6 +78,122 @@
   font-size: 10pt;
 }
 
+/* ── Оформление документа ─────────────────────────────────────────────────
+   Бумага должна выглядеть как документ, а не как распечатка таблицы:
+   заметная шапка, поля в рамках, чёткая типографская иерархия. */
+
+.doc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  padding-bottom: 3mm;
+  border-bottom: 2px solid var(--ink);
+}
+
+.doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+}
+
+.doc-logo {
+  width: 11mm;
+  height: 11mm;
+  border-radius: 2.5mm;
+}
+
+.doc-name {
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.doc-sub {
+  font-size: 9pt;
+  color: #444;
+}
+
+.doc-meta {
+  text-align: right;
+}
+
+.doc-number {
+  font-size: 12pt;
+}
+
+.doc-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+  margin-top: 4mm;
+}
+
+.doc-box {
+  border: 1px solid var(--line);
+  padding: 2.5mm 3mm;
+}
+
+.doc-box h2 {
+  margin: 0 0 1.5mm;
+  font-size: 9pt;
+  letter-spacing: 0.04em;
+}
+
+.doc-box p {
+  margin: 0 0 1mm;
+  font-size: 10pt;
+}
+
+.doc-label {
+  display: inline-block;
+  min-width: 26mm;
+  color: #444;
+  font-size: 9pt;
+}
+
+.doc-section {
+  margin: 5mm 0 1mm;
+  padding-bottom: 1mm;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-note {
+  margin: 0 0 2mm;
+  font-size: 9pt;
+  color: #444;
+}
+
+.doc-total td {
+  font-weight: 700;
+  background: #f2f2f2;
+}
+
+.doc-terms {
+  margin-top: 3mm;
+  font-size: 8.5pt;
+  line-height: 1.35;
+  color: #222;
+}
+
+.doc-terms h2 {
+  margin: 0 0 1mm;
+  font-size: 9pt;
+}
+
+.doc-terms p {
+  margin: 0;
+  text-align: justify;
+}
+
+.doc-sign {
+  display: flex;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-top: 4mm;
+  font-size: 10pt;
+}
+
 /* Панель управления печатью — на бумагу не попадает */
 .print-bar {
   position: sticky;

@@ -92,3 +92,29 @@ button, a {
     transition-duration: .01ms !important;
   }
 }
+
+/*
+  Заглушка загрузки не должна моргать на быстрых переходах.
+  Появляется с задержкой: успел отрисоваться экран за 250 мс — заглушку
+  никто не увидит; не успел — она плавно проявится.
+*/
+@keyframes skeleton-appear {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.skeleton {
+  opacity: 0;
+  animation:
+    skeleton-appear .18s ease .25s forwards,
+    skeleton-pulse 1.6s ease-in-out .25s infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { background-color: var(--surface-2); }
+  50%      { background-color: color-mix(in oklab, var(--surface-2) 55%, var(--bg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { opacity: 1; animation: none; }
+}

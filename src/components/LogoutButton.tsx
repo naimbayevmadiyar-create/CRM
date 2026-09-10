@@ -1,10 +1,24 @@
+"use client";
+
 import { LogOut } from "lucide-react";
 import { logout } from "@/app/logout/actions";
 import { cn } from "@/lib/format";
 
+/** Стираем кеш приложения при выходе: телефон может быть общим. */
+async function clearAppCache() {
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+  } catch {
+    // не получилось — данных там всё равно нет, только статика
+  }
+}
+
 export function LogoutButton({ className }: { className?: string }) {
   return (
-    <form action={logout}>
+    <form action={logout} onSubmit={() => { void clearAppCache(); }}>
       <button
         type="submit"
         className={cn(

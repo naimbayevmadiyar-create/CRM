@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getOrder } from "@/lib/db/orders";
+import { getProfile } from "@/lib/db/profiles";
 import { getCompany } from "@/lib/db/company";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { formatPhone, formatTenge } from "@/lib/format";
@@ -29,6 +30,9 @@ export default async function ActPage({
 
   const [order, company] = await Promise.all([getOrder(id), getCompany()]);
   if (!order) notFound();
+
+  // Технику принимает назначенный мастер — подставляем его, а не пустую линию
+  const master = order.master_id ? await getProfile(order.master_id) : null;
 
   return (
     <div className="print-page">
@@ -107,10 +111,16 @@ export default async function ActPage({
 
         <div style={{ marginTop: "5mm" }}>
           <p>
-            Оборудование передал: <Fill width="70mm" /> Подпись <Fill width="30mm" />
+            Оборудование передал:{" "}
+            <Fill
+              value={order.is_legal_entity ? order.org_name : order.client_name}
+              width="70mm"
+            />{" "}
+            Подпись <Fill width="30mm" />
           </p>
           <p style={{ marginTop: "3mm" }}>
-            Оборудование принял: <Fill width="70mm" /> Подпись <Fill width="30mm" />
+            Оборудование принял: <Fill value={master?.full_name} width="70mm" /> Подпись{" "}
+            <Fill width="30mm" />
           </p>
         </div>
 

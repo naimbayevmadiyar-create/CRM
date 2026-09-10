@@ -8,6 +8,7 @@ import { getCompany, missingForInvoice } from "@/lib/db/company";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { formatDateTime, formatPhone, formatTenge } from "@/lib/format";
 import { amountInWords } from "@/lib/amountInWords";
+import { BuyerForm } from "./BuyerForm";
 import { PrintBar } from "../../PrintBar";
 import "../../print.css";
 
@@ -187,6 +188,16 @@ export default async function InvoicePage({
           <span>М.П.</span>
         </div>
       </article>
+
+      <BuyerForm
+        orderId={order.id}
+        defaults={{
+          org_name: order.org_name,
+          org_bin: order.org_bin,
+          org_address: order.org_address,
+          contract_number: order.contract_number,
+        }}
+      />
     </div>
   );
 }

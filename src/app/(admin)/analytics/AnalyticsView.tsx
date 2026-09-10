@@ -71,12 +71,51 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
         />
       ) : (
         <>
-          <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Tile label="Обращений" value={String(data.leads)} />
             <Tile label="Заявок" value={String(data.orders)} />
             <Tile label="Выполнено" value={String(data.done)} />
-            <Tile label="Выручка" value={formatTenge(data.revenue)} />
-            <Tile label="Средний чек" value={formatTenge(data.avg_check)} />
+            <Tile label="Средний чек" value={formatTenge(data.avg_check)} hint="цена одного ремонта" />
+          </section>
+
+          {/* Деньги разложены на три величины: раньше «выручка» и «средний чек»
+              показывали одно и то же число и ничего не объясняли. */}
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">Деньги</h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Tile
+                label="Оборот"
+                value={formatTenge(data.turnover)}
+                hint="согласовано с клиентами"
+              />
+              <Tile
+                label="Расход на запчасти"
+                value={formatTenge(data.expenses)}
+                hint="потратили мастера"
+              />
+              <Tile
+                label="Чистыми"
+                value={formatTenge(data.net)}
+                hint="оборот минус расход"
+              />
+            </div>
+
+            <div className="mt-3 rounded-[var(--radius-card)] border border-primary/30 bg-primary/5 p-5">
+              <p className="text-sm text-muted">Прибыль компании</p>
+              <p className="mt-1 text-3xl font-semibold text-primary">
+                {formatTenge(data.company_cut)}
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                доля от чистых по закрытым заказам
+              </p>
+            </div>
+
+            {(data.cash > 0 || data.transfer > 0) && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Tile label="Приняли наличными" value={formatTenge(data.cash)} small />
+                <Tile label="Пришло на счёт" value={formatTenge(data.transfer)} small />
+              </div>
+            )}
           </section>
 
           <section className="grid gap-3 sm:grid-cols-3">
@@ -109,16 +148,30 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
               <div className="rounded-[var(--radius-card)] border border-border bg-surface p-4">
                 <SourceChart data={chart} />
 
-                <ul className="mt-4 divide-y divide-border">
-                  {data.by_source.map((row) => (
-                    <li key={row.source} className="flex justify-between gap-4 py-2 text-sm">
-                      <span>{SOURCE_LABEL[row.source as Source] ?? row.source}</span>
-                      <span className="text-muted">
-                        {row.orders} заявок · {formatTenge(row.revenue)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full min-w-[440px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-muted">
+                        <th className="py-2 font-medium">Источник</th>
+                        <th className="py-2 font-medium">Заявок</th>
+                        <th className="py-2 font-medium">Оборот</th>
+                        <th className="py-2 font-medium">Прибыль</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.by_source.map((row) => (
+                        <tr key={row.source} className="border-b border-border last:border-0">
+                          <td className="py-2">
+                            {SOURCE_LABEL[row.source as Source] ?? row.source}
+                          </td>
+                          <td className="py-2">{row.orders}</td>
+                          <td className="py-2">{formatTenge(row.turnover)}</td>
+                          <td className="py-2 font-medium">{formatTenge(row.company_cut)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </section>
           )}
@@ -127,13 +180,15 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
             <section>
               <h2 className="mb-3 text-lg font-semibold">Мастера</h2>
               <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-surface">
-                <table className="w-full min-w-[520px] text-sm">
+                <table className="w-full min-w-[620px] text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-muted">
                       <th className="px-4 py-3 font-medium">Мастер</th>
                       <th className="px-4 py-3 font-medium">Заявок</th>
-                      <th className="px-4 py-3 font-medium">Выручка</th>
-                      <th className="px-4 py-3 font-medium">Среднее до выезда</th>
+                      <th className="px-4 py-3 font-medium">Оборот</th>
+                      <th className="px-4 py-3 font-medium">Чистыми</th>
+                      <th className="px-4 py-3 font-medium">В кассу</th>
+                      <th className="px-4 py-3 font-medium">До выезда</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -141,7 +196,9 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
                       <tr key={row.master} className="border-b border-border last:border-0">
                         <td className="px-4 py-3 font-medium">{row.master}</td>
                         <td className="px-4 py-3">{row.orders}</td>
-                        <td className="px-4 py-3">{formatTenge(row.revenue)}</td>
+                        <td className="px-4 py-3">{formatTenge(row.turnover)}</td>
+                        <td className="px-4 py-3">{formatTenge(row.net)}</td>
+                        <td className="px-4 py-3 font-medium">{formatTenge(row.company_cut)}</td>
                         <td className="px-4 py-3 text-muted">
                           {row.avg_minutes == null ? "—" : formatDuration(row.avg_minutes)}
                         </td>
@@ -166,7 +223,7 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
                       {APPLIANCE_LABEL[row.appliance as ApplianceKind] ?? row.appliance}
                     </span>
                     <span className="text-muted">
-                      {row.orders} заявок · {formatTenge(row.revenue)}
+                      {row.orders} заявок · {formatTenge(row.turnover)}
                     </span>
                   </li>
                 ))}

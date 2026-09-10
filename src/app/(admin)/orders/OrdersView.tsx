@@ -4,11 +4,12 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { FileText, Printer, Receipt, Search, X } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { OrderMoney } from "@/components/OrderMoney";
 import { LeadStrip } from "@/components/LeadStrip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Field, Select, TextArea } from "@/components/ui/Field";
-import { formatDateTime, formatPhone, formatTenge, formatWhen } from "@/lib/format";
+import { formatDateTime, formatPhone, formatWhen } from "@/lib/format";
 import { APPLIANCES, APPLIANCE_LABEL } from "@/lib/appliance";
 import { SOURCE_LABEL } from "@/lib/source";
 import { STATUS_LABEL, STATUSES } from "@/lib/status";
@@ -315,7 +316,15 @@ function OrderRow({
         )}
         <span className="text-sm text-muted">{formatWhen(order.created_at)}</span>
         {order.total_amount != null && (
-          <span className="ml-auto font-medium">{formatTenge(order.total_amount)}</span>
+          <span className="ml-auto">
+            <OrderMoney
+              total={order.total_amount}
+              expenses={order.expenses}
+              expensesNote={order.expenses_note}
+              paymentMethod={order.payment_method}
+              sharePercent={order.company_share_percent}
+            />
+          </span>
         )}
       </div>
 
@@ -358,11 +367,9 @@ function OrderRow({
           <DocLink href={`/print/workorder/${order.id}`} icon={<Printer size={14} />}>
             Заказ-наряд
           </DocLink>
-          {order.is_legal_entity && (
-            <DocLink href={`/print/invoice/${order.id}`} icon={<Receipt size={14} />}>
-              Счёт
-            </DocLink>
-          )}
+          <DocLink href={`/print/invoice/${order.id}`} icon={<Receipt size={14} />}>
+            Счёт
+          </DocLink>
         </span>
 
         {canCancel && (

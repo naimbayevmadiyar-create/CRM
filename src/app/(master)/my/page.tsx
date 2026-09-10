@@ -7,6 +7,7 @@ import { getDefaultSharePercent } from "@/lib/db/settings";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { LogoutButton } from "@/components/LogoutButton";
+import { InstallHint } from "@/components/InstallHint";
 import { OrderCard } from "./OrderCard";
 
 export const metadata: Metadata = { title: "Мои заявки" };
@@ -33,6 +34,8 @@ export default async function MyOrdersPage() {
           <LogoutButton />
         </div>
       </header>
+
+      <InstallHint />
 
       {orders.length === 0 ? (
         <EmptyState
