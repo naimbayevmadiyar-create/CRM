@@ -8,6 +8,7 @@ import { formatPhone } from "@/lib/format";
 import { amountInWords } from "@/lib/amountInWords";
 import { docNumber, longDateRu } from "@/lib/docs";
 import { BuyerForm } from "./BuyerForm";
+import { SignBlock } from "../../SignBlock";
 import { PrintBar } from "../../PrintBar";
 import "../../print.css";
 
@@ -189,19 +190,14 @@ export default async function InvoicePage({
           </p>
         </div>
 
-        <div className="doc-signer">
-          <p>
-            Исполнитель / Бухгалтер{" "}
-            <span className="fill" style={{ minWidth: "50mm" }} />
-          </p>
-          <span className="doc-marks" style={{ left: "45mm", top: "-10mm" }}>
-            {company.stamp_image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={company.stamp_image} alt="" className="doc-stamp" />
-            )}
-          </span>
+        <div className="doc-signs">
+          <SignBlock
+            role="Исполнитель / Бухгалтер"
+            name={company.company_legal_name}
+            stamp={company.stamp_image}
+          />
+          <div />
         </div>
-
       </article>
 
       <BuyerForm

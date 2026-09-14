@@ -186,40 +186,81 @@
   text-align: justify;
 }
 
-.doc-sign {
-  display: flex;
-  justify-content: space-between;
-  gap: 8mm;
-  margin-top: 4mm;
+/* ── Подписи сторон ────────────────────────────────────────────────────────
+   У подписи и печати своё поле, они не наезжают на текст. Печать ложится
+   на правый край полосы подписи и уходит вниз, в пустую подпись «подпись». */
+
+.doc-signs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10mm;
+  margin-top: 5mm;
   font-size: 10pt;
+  break-inside: avoid;
 }
 
-/* Подпись мастера и печать ложатся поверх линии, как на живом документе */
-.doc-signer {
-  position: relative;
-}
-
-.doc-marks {
-  position: absolute;
-  left: 24mm;
-  top: -6mm;
+/* по нижнему краю, а не по базовой линии: у пустой строки базовой линии нет,
+   и она проседает ниже соседней */
+.doc-party-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 2mm;
-  pointer-events: none;
 }
 
-.doc-signature {
-  max-height: 13mm;
-  max-width: 40mm;
-  object-fit: contain;
+.doc-party-role {
+  flex-shrink: 0;
 }
 
-.doc-stamp {
-  max-height: 24mm;
-  max-width: 24mm;
+/* высота задана жёстко, чтобы пустая строка заказчика стояла вровень
+   с заполненной строкой исполнителя */
+.doc-party-name {
+  flex: 1;
+  height: 5.5mm;
+  line-height: 5.5mm;
+  border-bottom: 1px solid var(--ink);
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.doc-sigline {
+  position: relative;
+  height: 11mm;
+  border-bottom: 1px solid var(--ink);
+}
+
+/*
+  Подпись часто фотографируют на сером листе. Яркость с контрастом выбеливают
+  фон, а multiply делает белое прозрачным — на бумаге остаётся только росчерк.
+*/
+.doc-sigimg {
+  position: absolute;
+  left: 2mm;
+  bottom: 0.5mm;
+  max-height: 10mm;
+  max-width: 42mm;
   object-fit: contain;
-  opacity: 0.88;
+  filter: grayscale(1) brightness(1.35) contrast(2.6);
+  mix-blend-mode: multiply;
+}
+
+.doc-sigstamp {
+  position: absolute;
+  right: 2mm;
+  top: 0;
+  width: 24mm;
+  height: 24mm;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  opacity: 0.92;
+}
+
+/* низ блока — последний элемент листа, печать может свеситься в поле страницы */
+.doc-party-caption {
+  height: 6mm;
+  padding-top: 0.5mm;
+  font-size: 7.5pt;
+  color: #555;
 }
 
 /* Панель управления печатью — на бумагу не попадает */

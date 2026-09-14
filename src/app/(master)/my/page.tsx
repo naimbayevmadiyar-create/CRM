@@ -4,6 +4,7 @@ import { History, Receipt } from "lucide-react";
 import { requireMaster } from "@/lib/auth";
 import { getProfile } from "@/lib/db/profiles";
 import { listOrdersForMaster } from "@/lib/db/orders";
+import { listItemsForOrders } from "@/lib/db/orderItems";
 import { getDefaultSharePercent } from "@/lib/db/settings";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AutoRefresh } from "@/components/AutoRefresh";
@@ -22,6 +23,10 @@ export default async function MyOrdersPage() {
   ]);
 
   const sharePercent = profile?.share_percent ?? fallbackPercent;
+
+  // сохранённый перечень работ — чтобы мастер вернулся к заявке и увидел,
+  // что уже вписал, а не начинал заново
+  const items = await listItemsForOrders(orders.map((order) => order.id));
 
   return (
     <main className="safe-x mx-auto max-w-lg space-y-4 p-4">
@@ -68,7 +73,15 @@ export default async function MyOrdersPage() {
         <ul className="safe-bottom space-y-4">
           {orders.map((order) => (
             <li key={order.id}>
-              <OrderCard order={order} sharePercent={sharePercent} />
+              <OrderCard
+                order={order}
+                items={(items.get(order.id) ?? []).map((item) => ({
+                  title: item.title,
+                  price: item.price,
+                  quantity: item.quantity,
+                }))}
+                sharePercent={sharePercent}
+              />
             </li>
           ))}
         </ul>

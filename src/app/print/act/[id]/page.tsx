@@ -5,6 +5,7 @@ import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { formatPhone, formatTenge } from "@/lib/format";
 import { contractDate, docNumber } from "@/lib/docs";
 import { DocHeader } from "../../DocHeader";
+import { SignBlock } from "../../SignBlock";
 import { orderForPrint } from "../../access";
 import { PrintBar } from "../../PrintBar";
 import "../../print.css";
@@ -112,26 +113,17 @@ export default async function ActPage({
           Доп. информация: <Fill width="90mm" />
         </p>
 
-        <div style={{ marginTop: "5mm" }}>
-          <p>
-            Оборудование передал:{" "}
-            <Fill value={order.is_legal_entity ? order.org_name : null} width="70mm" />{" "}
-            Подпись <Fill width="30mm" />
-          </p>
-          <p className="doc-signer" style={{ marginTop: "3mm" }}>
-            Оборудование принял: <Fill value={master?.full_name} width="70mm" /> Подпись{" "}
-            <Fill width="30mm" />
-            <span className="doc-marks" style={{ left: "45mm" }}>
-              {signature && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={signature} alt="" className="doc-signature" />
-              )}
-              {company.stamp_image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={company.stamp_image} alt="" className="doc-stamp" />
-              )}
-            </span>
-          </p>
+        <div className="doc-signs">
+          <SignBlock
+            role="Оборудование передал"
+            name={order.is_legal_entity ? order.org_name : null}
+          />
+          <SignBlock
+            role="Оборудование принял"
+            name={master?.full_name}
+            signature={signature}
+            stamp={company.stamp_image}
+          />
         </div>
 
         <div className="terms">

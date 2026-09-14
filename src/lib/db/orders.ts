@@ -452,3 +452,48 @@ export async function listUnconfirmedCash(limit = 100): Promise<Order[]> {
   if (error) throw error;
   return data as Order[];
 }
+
+/**
+ * Промежуточное сохранение отчёта — без закрытия заявки.
+ *
+ * Ремонт бывает в несколько дней: мастер договорился о цене, вписал работы,
+ * а модуль повёз на перепайку. Раньше сохранить можно было только кнопкой
+ * «Готово», то есть закрыв заявку, — и заказ-наряд оставался пустым.
+ * Способ оплаты и доля здесь не трогаются: они фиксируются при закрытии.
+ */
+export async function saveOrderDraft(
+  id: string,
+  draft: { total: number; expenses: number; expensesNote?: string },
+  actor: Actor,
+): Promise<void> {
+  if (!Number.isInteger(draft.total) || draft.total < 0) {
+    throw new Error("Сумма должна быть целым числом");
+  }
+  if (!Number.isInteger(draft.expenses) || draft.expenses < 0) {
+    throw new Error("Стоимость запчастей должна быть целым числом");
+  }
+  if (draft.total > 0 && draft.expenses > draft.total) {
+    throw new Error("Запчасти дороже согласованной суммы — проверьте цифры");
+  }
+
+  const order = await getOrder(id);
+  if (!order) throw new Error("Заявка не найдена");
+  if (actor.role === "master" && order.master_id !== actor.id) {
+    throw new Error("Эта заявка назначена другому мастеру");
+  }
+  if (order.status === "done" || order.status === "canceled") {
+    throw new Error("Заявка уже закрыта");
+  }
+
+  const { error } = await db()
+    .from("orders")
+    .update({
+      // ноль не пишем: пустая сумма в списке честнее, чем «0 ₸»
+      total_amount: draft.total > 0 ? draft.total : null,
+      expenses: draft.expenses,
+      expenses_note: draft.expensesNote?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (error) throw error;
+}

@@ -8,8 +8,16 @@ import { formatDateTime, formatPhone, phoneDigits } from "@/lib/format";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { masterButtonLabel, nextForMaster, STATUS_LABEL, type Status } from "@/lib/status";
 import type { ApplianceKind } from "@/types/db";
-import { advance, finish, saveClient, type FinishReport } from "./actions";
+import {
+  advance,
+  finish,
+  saveClient,
+  saveProgress,
+  type DraftReport,
+  type FinishReport,
+} from "./actions";
 import { FinishForm } from "./FinishForm";
+import type { DraftItem } from "./ItemsEditor";
 
 export type MasterOrder = {
   id: string;
@@ -21,13 +29,19 @@ export type MasterOrder = {
   problem: string | null;
   status: Status;
   scheduled_at: string | null;
+  total_amount: number | null;
+  expenses: number;
+  expenses_note: string | null;
 };
 
 export function OrderCard({
   order,
+  items,
   sharePercent,
 }: {
   order: MasterOrder;
+  /** Уже сохранённый перечень работ. */
+  items: DraftItem[];
   sharePercent: number;
 }) {
   // оптимистичный этап: подпись кнопки меняется сразу, не дожидаясь сервера
@@ -62,6 +76,13 @@ export function OrderCard({
       const result = await finish(order.id, report);
       if (result.error) setError(result.error);
     });
+  }
+
+  /** Сохраняет отчёт, не закрывая заявку. Возвращает текст ошибки или null. */
+  async function onSaveDraft(draft: DraftReport): Promise<string | null> {
+    setError(null);
+    const result = await saveProgress(order.id, draft);
+    return result.error ?? null;
   }
 
   function onSaveClient() {
@@ -198,6 +219,13 @@ export function OrderCard({
 
       {askReport ? (
         <FinishForm
+          initial={{
+            total: order.total_amount ?? 0,
+            expenses: order.expenses,
+            expensesNote: order.expenses_note ?? "",
+            items,
+          }}
+          onSaveDraft={onSaveDraft}
           sharePercent={sharePercent}
           pending={pending}
           onSubmit={onFinish}

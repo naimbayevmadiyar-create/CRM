@@ -7,6 +7,7 @@ import { formatPhone } from "@/lib/format";
 import { amountInWords } from "@/lib/amountInWords";
 import { docNumber, longDateRu } from "@/lib/docs";
 import { PrintBar } from "../../PrintBar";
+import { SignBlock } from "../../SignBlock";
 import "../../print.css";
 
 export const metadata: Metadata = { title: "АВР" };
@@ -120,30 +121,13 @@ export default async function AvrPage({
           </p>
         </div>
 
-        <div className="doc-cols" style={{ marginTop: "8mm" }}>
-          <section className="doc-signer">
-            <p>
-              <b>Исполнитель</b>
-            </p>
-            <p style={{ marginTop: "6mm" }}>
-              {company.company_legal_name} <span className="fill" style={{ minWidth: "35mm" }} />
-            </p>
-            <span className="doc-marks" style={{ left: "20mm", top: "8mm" }}>
-              {company.stamp_image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={company.stamp_image} alt="" className="doc-stamp" />
-              )}
-            </span>
-          </section>
-
-          <section>
-            <p>
-              <b>Заказчик</b>
-            </p>
-            <p style={{ marginTop: "6mm" }}>
-              {invoice.buyer_name ?? ""} <span className="fill" style={{ minWidth: "35mm" }} />
-            </p>
-          </section>
+        <div className="doc-signs" style={{ marginTop: "8mm" }}>
+          <SignBlock
+            role="Исполнитель"
+            name={company.company_legal_name}
+            stamp={company.stamp_image}
+          />
+          <SignBlock role="Заказчик" name={invoice.buyer_name} />
         </div>
       </article>
     </div>

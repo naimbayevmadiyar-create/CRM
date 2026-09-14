@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn, formatTenge } from "@/lib/format";
 import {
@@ -12,17 +13,32 @@ import {
 import { ItemsEditor, type DraftItem } from "./ItemsEditor";
 
 /**
- * Отчёт по закрытому заказу.
+ * Отчёт по заявке.
  *
- * Мастер вводит два числа и жмёт две кнопки. Чистые, доли и итог считаются
- * на лету и показываются тут же — человек видит результат до того, как
- * нажмёт «Готово», и может поймать свою же опечатку.
+ * Кнопок две, и это принципиально. «Сохранить» — записать работы и суммы,
+ * заявка остаётся открытой: ремонт бывает в несколько дней, деталь едет на
+ * перепайку, а заказ-наряд клиенту нужен уже сейчас. «Закрыть заявку» —
+ * работа сделана и оплачена. Раньше была одна «Готово», и сохранить,
+ * не закрыв, было нельзя.
+ *
+ * Чистые, доли и итог считаются на лету — человек видит результат до того,
+ * как нажмёт, и может поймать свою же опечатку.
  */
 export function FinishForm({
+  initial,
+  onSaveDraft,
   sharePercent,
   pending,
   onSubmit,
 }: {
+  /** То, что мастер уже сохранил раньше. */
+  initial: { total: number; expenses: number; expensesNote: string; items: DraftItem[] };
+  onSaveDraft: (draft: {
+    total: number;
+    expenses: number;
+    expensesNote: string;
+    items: DraftItem[];
+  }) => Promise<string | null>;
   /** Доля компании этого мастера. Меняет её только директор. */
   sharePercent: number;
   pending: boolean;
@@ -34,12 +50,18 @@ export function FinishForm({
     items: DraftItem[];
   }) => void;
 }) {
-  const [total, setTotal] = useState("");
-  const [expenses, setExpenses] = useState("");
-  const [note, setNote] = useState("");
+  const [total, setTotal] = useState(initial.total ? String(initial.total) : "");
+  const [expenses, setExpenses] = useState(initial.expenses ? String(initial.expenses) : "");
+  const [note, setNote] = useState(initial.expensesNote);
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
-  const [items, setItems] = useState<DraftItem[]>([]);
+  const [items, setItems] = useState<DraftItem[]>(initial.items);
   const [error, setError] = useState<string | null>(null);
+
+  const [saving, startSaving] = useTransition();
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // что-то поменяли после сохранения — подсказку «Сохранено» убираем,
+  // иначе человек уйдёт, думая, что всё записано
+  const [dirty, setDirty] = useState(false);
 
   const totalValue = Number(total.replace(/\D/g, "")) || 0;
   const expensesValue = Number(expenses.replace(/\D/g, "")) || 0;
@@ -52,6 +74,41 @@ export function FinishForm({
   });
 
   const tooMuchExpenses = expensesValue > totalValue && totalValue > 0;
+
+  function change<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setDirty(true);
+    };
+  }
+
+  function save() {
+    if (tooMuchExpenses) {
+      setError("Запчасти дороже согласованной суммы — проверьте цифры");
+      return;
+    }
+    setError(null);
+    startSaving(async () => {
+      const failure = await onSaveDraft({
+        total: totalValue,
+        expenses: expensesValue,
+        expensesNote: note,
+        items,
+      });
+      if (failure) {
+        setError(failure);
+        return;
+      }
+      setDirty(false);
+      setSavedAt(
+        new Intl.DateTimeFormat("ru-RU", {
+          timeZone: "Asia/Almaty",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date()),
+      );
+    });
+  }
 
   function submit() {
     if (!totalValue) {
@@ -79,6 +136,7 @@ export function FinishForm({
   /** Отметил работы — сумма складывается сама, но её ещё можно поправить. */
   function onItemsChange(next: DraftItem[]) {
     setItems(next);
+    setDirty(true);
     const sum = next.reduce((acc, item) => acc + item.price * item.quantity, 0);
     if (sum > 0) setTotal(String(sum));
   }
@@ -90,16 +148,19 @@ export function FinishForm({
       <Money
         label="Согласовано с клиентом"
         value={total}
-        onChange={setTotal}
-        autoFocus
+        onChange={change(setTotal)}
       />
 
-      <Money label="Запчасти (деньги компании)" value={expenses} onChange={setExpenses} />
+      <Money
+        label="Запчасти (деньги компании)"
+        value={expenses}
+        onChange={change(setExpenses)}
+      />
 
       {expensesValue > 0 && (
         <input
           value={note}
-          onChange={(e) => setNote(e.target.value)}
+          onChange={(e) => change(setNote)(e.target.value)}
           placeholder="На какие запчасти"
           aria-label="На какие запчасти ушли деньги"
           className="h-12 w-full rounded-[var(--radius-card)] border border-border
@@ -165,9 +226,28 @@ export function FinishForm({
         </p>
       )}
 
-      <Button size="lg" className="w-full" onClick={submit} disabled={pending}>
-        Готово
-      </Button>
+      <div className="space-y-2">
+        <Button
+          size="lg"
+          variant="ghost"
+          className="w-full"
+          onClick={save}
+          disabled={saving || pending}
+        >
+          {saving ? "Сохраняем…" : "Сохранить, заявка останется открытой"}
+        </Button>
+
+        {savedAt && !dirty && (
+          <p className="flex items-center justify-center gap-1.5 text-sm text-success">
+            <Check size={15} aria-hidden />
+            Сохранено в {savedAt} — заказ-наряд уже можно печатать
+          </p>
+        )}
+
+        <Button size="lg" className="w-full" onClick={submit} disabled={pending || saving}>
+          Работа сделана — закрыть заявку
+        </Button>
+      </div>
 
       {error && (
         <p role="alert" className="text-sm text-danger">
@@ -182,12 +262,10 @@ function Money({
   label,
   value,
   onChange,
-  autoFocus,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  autoFocus?: boolean;
 }) {
   return (
     <label className="block">
@@ -198,7 +276,6 @@ function Money({
           onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
           inputMode="numeric"
           enterKeyHint="next"
-          autoFocus={autoFocus}
           placeholder="0"
           className="h-14 w-full rounded-[var(--radius-card)] border border-border
                      bg-surface px-4 pr-10 text-2xl outline-none focus:border-primary"
@@ -215,19 +292,14 @@ function Row({
   label,
   value,
   strong,
-  action,
 }: {
   label: string;
   value: string;
   strong?: boolean;
-  action?: React.ReactNode;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-1">
-      <dt className="flex items-baseline gap-2 text-muted">
-        {label}
-        {action}
-      </dt>
+      <dt className="text-muted">{label}</dt>
       <dd className={strong ? "text-xl font-semibold" : "font-medium"}>{value}</dd>
     </div>
   );

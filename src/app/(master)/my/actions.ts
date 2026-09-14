@@ -6,6 +6,7 @@ import {
   advanceOrderStatus,
   closeOrderWithReport,
   getOrder,
+  saveOrderDraft,
   updateClientDetails,
 } from "@/lib/db/orders";
 import { getProfile, setMasterSignature } from "@/lib/db/profiles";
@@ -180,5 +181,40 @@ export async function saveSignature(
   }
 
   revalidatePath("/my/profile");
+  return { ok: true };
+}
+
+export type DraftReport = {
+  total: number;
+  expenses: number;
+  expensesNote?: string;
+  items: { title: string; price: number; quantity: number }[];
+};
+
+/**
+ * «Сохранить» — работы и суммы уходят в базу, заявка остаётся открытой.
+ * После этого заказ-наряд печатается уже заполненным.
+ */
+export async function saveProgress(
+  orderId: string,
+  draft: DraftReport,
+): Promise<ActionResult> {
+  const session = await requireMaster();
+  const actor = { id: session.masterId, role: "master" as const };
+
+  try {
+    await saveOrderDraft(
+      orderId,
+      { total: draft.total, expenses: draft.expenses, expensesNote: draft.expensesNote },
+      actor,
+    );
+    await replaceOrderItems(orderId, draft.items);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось сохранить" };
+  }
+
+  revalidatePath("/my");
+  revalidatePath("/orders");
+  revalidatePath(`/print/workorder/${orderId}`);
   return { ok: true };
 }

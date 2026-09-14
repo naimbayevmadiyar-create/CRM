@@ -6,6 +6,7 @@ import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { formatPhone, formatTenge } from "@/lib/format";
 import { contractDate, docNumber } from "@/lib/docs";
 import { DocHeader } from "../../DocHeader";
+import { SignBlock } from "../../SignBlock";
 import { orderForPrint } from "../../access";
 import { PrintBar } from "../../PrintBar";
 import "../../print.css";
@@ -166,24 +167,17 @@ export default async function WorkOrderPage({
           </p>
         </section>
 
-        <div className="doc-sign">
-          <span className="doc-signer">
-            Исполнитель: <Fill value={master?.full_name} width="45mm" />
-            <span className="doc-marks">
-              {signature && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={signature} alt="" className="doc-signature" />
-              )}
-              {company.stamp_image && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={company.stamp_image} alt="" className="doc-stamp" />
-              )}
-            </span>
-          </span>
-          <span>
-            Заказчик: <Fill value={order.is_legal_entity ? order.org_name : null} width="45mm" />{" "}
-            Подпись <span className="fill" style={{ minWidth: "25mm" }} />
-          </span>
+        <div className="doc-signs">
+          <SignBlock
+            role="Исполнитель"
+            name={master?.full_name}
+            signature={signature}
+            stamp={company.stamp_image}
+          />
+          <SignBlock
+            role="Заказчик"
+            name={order.is_legal_entity ? order.org_name : null}
+          />
         </div>
       </article>
     </div>
