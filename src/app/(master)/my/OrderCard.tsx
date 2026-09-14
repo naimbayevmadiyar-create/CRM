@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Check, Clock, FileText, MapPin, MessageCircle, Pencil, Phone, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatDateTime, formatPhone, phoneDigits } from "@/lib/format";
@@ -16,8 +17,19 @@ import {
   type DraftReport,
   type FinishReport,
 } from "./actions";
-import { FinishForm } from "./FinishForm";
 import type { DraftItem } from "./ItemsEditor";
+import { clearDraft } from "./draft";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+/*
+  Форма отчёта рисуется только в браузере: она поднимает несохранённый
+  черновик с телефона, а на сервере телефона нет. Отрисуй её сервер —
+  значения разошлись бы при загрузке.
+*/
+const FinishForm = dynamic(() => import("./FinishForm").then((m) => m.FinishForm), {
+  ssr: false,
+  loading: () => <Skeleton className="mt-4 h-72 w-full" />,
+});
 
 export type MasterOrder = {
   id: string;
@@ -75,6 +87,7 @@ export function OrderCard({
       setStatus("done");
       const result = await finish(order.id, report);
       if (result.error) setError(result.error);
+      else clearDraft(order.id);
     });
   }
 
@@ -219,6 +232,7 @@ export function OrderCard({
 
       {askReport ? (
         <FinishForm
+          orderId={order.id}
           initial={{
             total: order.total_amount ?? 0,
             expenses: order.expenses,

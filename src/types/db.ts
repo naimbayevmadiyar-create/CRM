@@ -189,6 +189,20 @@ type OrderItemRow = {
   created_at: string;
 };
 
+type AppErrorRow = {
+  id: number;
+  created_at: string;
+  source: "server" | "client";
+  digest: string | null;
+  message: string;
+  path: string | null;
+  method: string | null;
+  route_path: string | null;
+  route_type: string | null;
+  role: string | null;
+  user_agent: string | null;
+};
+
 type AuthAttemptRow = {
   id: number;
   ip_hash: string;
@@ -247,6 +261,12 @@ export type Database = {
         Row: InvoiceItemRow;
         Insert: Optional<InvoiceItemRow, Exclude<keyof InvoiceItemRow, "invoice_id" | "title">>;
         Update: Partial<InvoiceItemRow>;
+        Relationships: [];
+      };
+      app_errors: {
+        Row: AppErrorRow;
+        Insert: Optional<AppErrorRow, Exclude<keyof AppErrorRow, "source" | "message">>;
+        Update: Partial<AppErrorRow>;
         Relationships: [];
       };
       auth_attempts: {

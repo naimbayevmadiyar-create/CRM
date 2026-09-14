@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Check } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { Check, History } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn, formatTenge } from "@/lib/format";
 import {
@@ -11,6 +11,7 @@ import {
   type PaymentMethod,
 } from "@/lib/settlement";
 import { ItemsEditor, type DraftItem } from "./ItemsEditor";
+import { clearDraft, readDraft, writeDraft } from "./draft";
 
 /**
  * Отчёт по заявке.
@@ -25,12 +26,14 @@ import { ItemsEditor, type DraftItem } from "./ItemsEditor";
  * как нажмёт, и может поймать свою же опечатку.
  */
 export function FinishForm({
+  orderId,
   initial,
   onSaveDraft,
   sharePercent,
   pending,
   onSubmit,
 }: {
+  orderId: string;
   /** То, что мастер уже сохранил раньше. */
   initial: { total: number; expenses: number; expensesNote: string; items: DraftItem[] };
   onSaveDraft: (draft: {
@@ -50,18 +53,24 @@ export function FinishForm({
     items: DraftItem[];
   }) => void;
 }) {
-  const [total, setTotal] = useState(initial.total ? String(initial.total) : "");
-  const [expenses, setExpenses] = useState(initial.expenses ? String(initial.expenses) : "");
-  const [note, setNote] = useState(initial.expensesNote);
+  // Форма рисуется только в браузере (см. OrderCard), поэтому черновик можно
+  // прочитать сразу при создании — без мигания и без расхождения с сервером.
+  const [restored] = useState(() => readDraft(orderId));
+  const start = restored ?? initial;
+
+  const [total, setTotal] = useState(start.total ? String(start.total) : "");
+  const [expenses, setExpenses] = useState(start.expenses ? String(start.expenses) : "");
+  const [note, setNote] = useState(start.expensesNote);
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
-  const [items, setItems] = useState<DraftItem[]>(initial.items);
+  const [items, setItems] = useState<DraftItem[]>(start.items);
   const [error, setError] = useState<string | null>(null);
 
   const [saving, startSaving] = useTransition();
   const [savedAt, setSavedAt] = useState<string | null>(null);
   // что-то поменяли после сохранения — подсказку «Сохранено» убираем,
   // иначе человек уйдёт, думая, что всё записано
-  const [dirty, setDirty] = useState(false);
+  // восстановленный черновик — это несохранённые правки
+  const [dirty, setDirty] = useState(Boolean(restored));
 
   const totalValue = Number(total.replace(/\D/g, "")) || 0;
   const expensesValue = Number(expenses.replace(/\D/g, "")) || 0;
@@ -74,6 +83,17 @@ export function FinishForm({
   });
 
   const tooMuchExpenses = expensesValue > totalValue && totalValue > 0;
+
+  // Пока есть несохранённые правки, держим их копию на телефоне
+  useEffect(() => {
+    if (!dirty) return;
+    writeDraft(orderId, {
+      total: totalValue,
+      expenses: expensesValue,
+      expensesNote: note,
+      items,
+    });
+  }, [dirty, orderId, totalValue, expensesValue, note, items]);
 
   function change<T>(setter: (value: T) => void) {
     return (value: T) => {
@@ -100,6 +120,7 @@ export function FinishForm({
         return;
       }
       setDirty(false);
+      clearDraft(orderId);
       setSavedAt(
         new Intl.DateTimeFormat("ru-RU", {
           timeZone: "Asia/Almaty",
@@ -143,6 +164,14 @@ export function FinishForm({
 
   return (
     <div className="mt-4 space-y-4">
+      {restored && dirty && (
+        <p className="flex items-start gap-2 rounded-[var(--radius-card)] bg-warning/10 p-3 text-sm">
+          <History size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+          Вернули то, что вы вписали, но не успели сохранить. Проверьте и нажмите
+          «Сохранить».
+        </p>
+      )}
+
       <ItemsEditor items={items} onChange={onItemsChange} />
 
       <Money
