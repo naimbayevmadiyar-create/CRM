@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
+import { ImageField } from "@/components/ImageField";
 import type { Company } from "@/lib/db/company";
 import { saveSettings, type SettingsState } from "./actions";
 
@@ -91,6 +92,41 @@ export function SettingsView({
           defaultValue={company.bank_bic ?? ""}
           placeholder="CASPKZKA"
         />
+        <Field
+          label="Кбе"
+          name="bank_kbe"
+          defaultValue={company.bank_kbe}
+          placeholder="17 — ТОО, 19 — ИП"
+        />
+        <Field
+          label="Код назначения платежа"
+          name="payment_purpose_code"
+          defaultValue={company.payment_purpose_code}
+          placeholder="859"
+        />
+      </Section>
+
+      <Section title="Фирменный бланк">
+        <ImageField
+          label="Логотип"
+          name="logo_image"
+          value={company.logo_image}
+          hint="Встанет в шапку акта, заказ-наряда и счёта. Лучше png с прозрачным фоном."
+        />
+        <ImageField
+          label="Печать"
+          name="stamp_image"
+          value={company.stamp_image}
+          height="h-28"
+          hint="Отпечаток на белом листе, сфотографированный или отсканированный."
+        />
+        <ImageField
+          label="Kaspi QR"
+          name="kaspi_qr_image"
+          value={company.kaspi_qr_image}
+          height="h-28"
+          hint="Скриншот QR из Kaspi Business — клиент оплатит счёт с телефона."
+        />
       </Section>
 
       <Section title="Условия работы">
@@ -112,6 +148,24 @@ export function SettingsView({
           inputMode="numeric"
           defaultValue={String(company.repair_term_days)}
         />
+        <Field
+          label="Приставка к номеру договора"
+          name="contract_prefix"
+          defaultValue={company.contract_prefix}
+          placeholder="000"
+        />
+        <div>
+          <Field
+            label="Налог с оборота, %"
+            name="tax_percent"
+            inputMode="decimal"
+            defaultValue={String(company.tax_percent)}
+          />
+          <p className="mt-1.5 text-sm text-muted">
+            Упрощённая декларация в РК — 3 %. На эту ставку считается прибыль
+            после налога в аналитике.
+          </p>
+        </div>
       </Section>
 
       <Section title="Расчёт с мастерами">
@@ -124,8 +178,8 @@ export function SettingsView({
             className="max-w-40"
           />
           <p className="mt-1.5 text-sm text-muted">
-            Подставляется при закрытии заказа. Мастер может изменить её для
-            конкретной заявки, если договорились иначе.
+            Берётся, если мастеру не задан свой процент. Личный процент
+            ставится в разделе «Мастера» — мастер его не видит и не меняет.
           </p>
         </div>
       </Section>

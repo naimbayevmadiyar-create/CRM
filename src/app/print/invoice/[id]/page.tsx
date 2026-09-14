@@ -2,17 +2,23 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { getOrder } from "@/lib/db/orders";
-import { itemsTotal, listOrderItems } from "@/lib/db/orderItems";
+import { getInvoice, invoiceTotal, listInvoiceItems } from "@/lib/db/invoices";
 import { getCompany, missingForInvoice } from "@/lib/db/company";
-import { APPLIANCE_LABEL } from "@/lib/appliance";
-import { formatDateTime, formatPhone, formatTenge } from "@/lib/format";
+import { formatPhone } from "@/lib/format";
 import { amountInWords } from "@/lib/amountInWords";
+import { docNumber, longDateRu } from "@/lib/docs";
 import { BuyerForm } from "./BuyerForm";
 import { PrintBar } from "../../PrintBar";
 import "../../print.css";
 
 export const metadata: Metadata = { title: "Счёт на оплату" };
+
+/** Числа в счёте — в бухгалтерском виде: 80 000,00 без значка валюты. */
+function money(amount: number): string {
+  const whole = Math.trunc(amount);
+  const grouped = String(Math.abs(whole)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `${whole < 0 ? "−" : ""}${grouped},00`;
+}
 
 export default async function InvoicePage({
   params,
@@ -22,12 +28,12 @@ export default async function InvoicePage({
   await requireAdmin();
   const { id } = await params;
 
-  const [order, items, company] = await Promise.all([
-    getOrder(id),
-    listOrderItems(id),
+  const [invoice, items, company] = await Promise.all([
+    getInvoice(id),
+    listInvoiceItems(id),
     getCompany(),
   ]);
-  if (!order) notFound();
+  if (!invoice) notFound();
 
   const gaps = missingForInvoice(company);
 
@@ -51,44 +57,39 @@ export default async function InvoicePage({
     );
   }
 
-  const rows =
-    items.length > 0
-      ? items
-      : [
-          {
-            id: "single",
-            title: `Ремонт: ${APPLIANCE_LABEL[order.appliance]}`,
-            price: order.total_amount ?? 0,
-            quantity: 1,
-          },
-        ];
-
-  const total = items.length > 0 ? itemsTotal(items) : (order.total_amount ?? 0);
+  const total = invoiceTotal(items);
+  const number = docNumber(invoice.number, company.contract_prefix);
 
   return (
     <div className="print-page">
-      <PrintBar backHref="/orders" title={`Счёт · заявка №${order.number}`} />
+      <PrintBar backHref="/invoices" title={`Счёт на оплату · ${number}`} />
 
       <article className="sheet">
+        {/* Образец платёжного поручения — как в 1С: по нему бухгалтер
+            плательщика заполняет платёж, не спрашивая реквизиты заново. */}
+        <p className="doc-note" style={{ marginBottom: "1mm" }}>
+          Образец платёжного поручения
+        </p>
+
         <table style={{ marginBottom: "4mm" }}>
           <tbody>
             <tr>
-              <td style={{ width: "32%" }}>
+              <td style={{ width: "46%" }}>
                 Бенефициар:
                 <br />
                 <b>{company.company_legal_name}</b>
                 <br />
-                БИН: {company.company_bin}
+                БИН / ИИН: {company.company_bin}
               </td>
-              <td>
+              <td style={{ width: "34%" }}>
                 ИИК
                 <br />
                 <b>{company.bank_account}</b>
               </td>
-              <td style={{ width: "26%" }}>
+              <td>
                 Кбе
                 <br />
-                17
+                <b>{company.bank_kbe}</b>
               </td>
             </tr>
             <tr>
@@ -105,33 +106,33 @@ export default async function InvoicePage({
               <td>
                 Код назначения платежа
                 <br />
-                859
+                <b>{company.payment_purpose_code}</b>
               </td>
             </tr>
           </tbody>
         </table>
 
-        <h1>
-          Счёт на оплату № {order.number} от {formatDateTime(order.created_at)}
+        <h1 style={{ textAlign: "center", fontSize: "14pt" }}>
+          Счёт на оплату № {number} от {longDateRu(invoice.created_at)}
         </h1>
 
         <p>
-          <b>Поставщик:</b> {company.company_legal_name}
-          {company.company_bin ? `, БИН ${company.company_bin}` : ""}
+          <b>Поставщик:</b> БИН / ИИН {company.company_bin}, {company.company_legal_name}
           {company.company_address ? `, ${company.company_address}` : ""}
           {company.company_phone ? `, тел. ${formatPhone(company.company_phone)}` : ""}
         </p>
 
         <p style={{ marginTop: "2mm" }}>
           <b>Покупатель:</b>{" "}
-          {order.org_name ?? order.client_name ?? "—"}
-          {order.org_bin ? `, БИН ${order.org_bin}` : ""}
-          {order.org_address ? `, ${order.org_address}` : ""}
+          {invoice.buyer_bin ? `БИН / ИИН ${invoice.buyer_bin}, ` : ""}
+          {invoice.buyer_name ?? "—"}
+          {invoice.buyer_address ? `, ${invoice.buyer_address}` : ""}
         </p>
 
         <p style={{ marginTop: "2mm" }}>
-          <b>Договор:</b> {order.contract_number ? `№ ${order.contract_number}` : "по заявке"}{" "}
-          {order.contract_date ?? ""}
+          <b>Договор:</b>{" "}
+          {invoice.contract_number ? `№ ${invoice.contract_number}` : "без договора"}
+          {invoice.contract_date ? ` от ${invoice.contract_date}` : ""}
         </p>
 
         <table>
@@ -139,64 +140,87 @@ export default async function InvoicePage({
             <tr>
               <th style={{ width: "7%" }}>№</th>
               <th>Наименование</th>
-              <th style={{ width: "10%" }}>Кол-во</th>
+              <th style={{ width: "11%" }}>Кол-во</th>
+              <th style={{ width: "9%" }}>Ед.</th>
               <th style={{ width: "16%" }}>Цена</th>
               <th style={{ width: "18%" }}>Сумма</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.id}>
+            {items.map((item, index) => (
+              <tr key={item.id}>
                 <td>{index + 1}</td>
-                <td>{row.title}</td>
-                <td className="num">{row.quantity}</td>
-                <td className="num">{formatTenge(row.price)}</td>
-                <td className="num">{formatTenge(row.price * row.quantity)}</td>
+                <td>{item.title}</td>
+                <td className="num">{item.quantity}</td>
+                <td>{item.unit}</td>
+                <td className="num">{money(item.price)}</td>
+                <td className="num">{money(item.price * item.quantity)}</td>
               </tr>
             ))}
+            <tr className="doc-total">
+              <td colSpan={5} className="num">
+                Итого
+              </td>
+              <td className="num">{money(total)}</td>
+            </tr>
             <tr>
-              <td colSpan={4} className="num">
-                <b>Итого</b>
+              <td colSpan={5} className="num">
+                В том числе НДС
               </td>
-              <td className="num">
-                <b>{formatTenge(total)}</b>
-              </td>
+              <td className="num">Без НДС</td>
             </tr>
           </tbody>
         </table>
 
         <p>
-          Всего наименований {rows.length}, на сумму <b>{formatTenge(total)}</b>
+          Всего наименований {items.length}, на сумму <b>{money(total)} KZT</b>
         </p>
         <p>
           <b>Всего к оплате:</b> {amountInWords(total)}
         </p>
-        <p className="text-[9.5pt]">Без НДС.</p>
 
         <div className="terms">
           <p>
-            Оплата данного счёта означает согласие с условиями оказания услуг. Товар
-            отпускается по факту оплаты, при наличии доверенности и документа,
-            удостоверяющего личность.
+            Внимание! Оплата данного счёта означает согласие с условиями оказания услуг.
+            Услуги оказываются по факту поступления денег на счёт Поставщика. Счёт
+            действителен к оплате в течение 5 рабочих дней.
           </p>
         </div>
 
-        <div className="sign">
+        <div className="doc-sign doc-signer">
           <span>
-            Исполнитель <span className="fill" style={{ minWidth: "50mm" }} />
+            Исполнитель / Бухгалтер{" "}
+            <span className="fill" style={{ minWidth: "50mm" }} />
           </span>
-          <span>М.П.</span>
+          {company.kaspi_qr_image && (
+            <span className="doc-qr">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={company.kaspi_qr_image} alt="" />
+              <span className="doc-sub">Kaspi QR</span>
+            </span>
+          )}
+          <span className="doc-marks" style={{ left: "40mm", top: "-8mm" }}>
+            {company.stamp_image && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={company.stamp_image} alt="" className="doc-stamp" />
+            )}
+          </span>
         </div>
       </article>
 
       <BuyerForm
-        orderId={order.id}
+        invoiceId={invoice.id}
         defaults={{
-          org_name: order.org_name,
-          org_bin: order.org_bin,
-          org_address: order.org_address,
-          contract_number: order.contract_number,
+          buyer_name: invoice.buyer_name,
+          buyer_bin: invoice.buyer_bin,
+          buyer_address: invoice.buyer_address,
+          contract_number: invoice.contract_number,
         }}
+        items={items.map((item) => ({
+          title: item.title,
+          price: item.price,
+          quantity: item.quantity,
+        }))}
       />
     </div>
   );

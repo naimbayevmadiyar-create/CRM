@@ -9,7 +9,7 @@ import { LeadStrip } from "@/components/LeadStrip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Field, Select, TextArea } from "@/components/ui/Field";
-import { formatDateTime, formatPhone, formatWhen } from "@/lib/format";
+import { formatDateTime, formatPhone, formatTenge, formatWhen } from "@/lib/format";
 import { APPLIANCES, APPLIANCE_LABEL } from "@/lib/appliance";
 import { SOURCE_LABEL } from "@/lib/source";
 import { STATUS_LABEL, STATUSES } from "@/lib/status";
@@ -24,6 +24,7 @@ import {
   revertCashAction,
   type OrderFormState,
 } from "./actions";
+import { invoiceForOrderAction } from "../invoices/actions";
 import { OrderDetails } from "./OrderDetails";
 import { OrderEditForm } from "./OrderEditForm";
 
@@ -43,6 +44,7 @@ export function OrdersView({
   query,
   status,
   repeatPhones,
+  pendingCash,
 }: {
   orders: Order[];
   masters: Profile[];
@@ -51,6 +53,8 @@ export function OrdersView({
   query: string;
   status: string;
   repeatPhones: string[];
+  /** Кто ещё не сдал наличные по закрытым заявкам. */
+  pendingCash: { name: string; amount: number; orders: number }[];
 }) {
   const repeat = new Set(repeatPhones);
   const [state, action, pending] = useActionState(createOrderAction, INITIAL);
@@ -124,6 +128,23 @@ export function OrdersView({
           </Link>
         )}
       </form>
+
+      {pendingCash.length > 0 && (
+        <section className="rounded-[var(--radius-card)] border border-warning/40 bg-warning/5 p-4">
+          <h2 className="text-sm font-medium">Наличные ещё не в кассе</h2>
+          <ul className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {pendingCash.map((row) => (
+              <li key={row.name}>
+                <b>{row.name}</b> — {formatTenge(row.amount)}{" "}
+                <span className="text-muted">({row.orders})</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted">
+            Принял деньги — нажмите «Подтвердить оплату» в заявке, и она уйдёт отсюда.
+          </p>
+        </section>
+      )}
 
       {leads.length > 0 && (
         <section>
@@ -466,9 +487,17 @@ function OrderRow({
           <DocLink href={`/print/workorder/${order.id}`} icon={<Printer size={14} />}>
             Заказ-наряд
           </DocLink>
-          <DocLink href={`/print/invoice/${order.id}`} icon={<Receipt size={14} />}>
-            Счёт
-          </DocLink>
+          <form action={invoiceForOrderAction.bind(null, order.id)}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1 rounded-[var(--radius-card)]
+                         bg-surface2 px-2.5 py-1.5 text-xs font-medium text-muted
+                         transition-colors hover:text-text"
+            >
+              <Receipt size={14} aria-hidden />
+              Счёт
+            </button>
+          </form>
         </span>
 
         <OrderDetails order={order} masterName={masterName} />

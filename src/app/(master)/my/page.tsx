@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { History } from "lucide-react";
+import { History, Receipt } from "lucide-react";
 import { requireMaster } from "@/lib/auth";
 import { getProfile } from "@/lib/db/profiles";
 import { listOrdersForMaster } from "@/lib/db/orders";
@@ -31,21 +31,33 @@ export default async function MyOrdersPage() {
       <header className="safe-top flex items-baseline justify-between gap-3 px-1 pt-2">
         <h1 className="text-2xl font-semibold">Мои заявки</h1>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-sm text-muted">{profile?.full_name}</span>
+          <Link href="/my/profile" className="text-sm text-muted underline underline-offset-4">
+            {profile?.full_name}
+          </Link>
           <LogoutButton />
         </div>
       </header>
 
       <InstallHint />
 
-      <Link
-        href="/my/closed"
-        className="flex h-12 items-center gap-2 rounded-[var(--radius-card)]
-                   border border-border bg-surface px-4 font-medium"
-      >
-        <History size={18} aria-hidden className="text-muted" />
-        Закрытые заявки
-      </Link>
+      <div className="grid grid-cols-2 gap-2">
+        <Link
+          href="/my/closed"
+          className="flex h-12 items-center gap-2 rounded-[var(--radius-card)]
+                     border border-border bg-surface px-4 font-medium"
+        >
+          <History size={18} aria-hidden className="text-muted" />
+          Закрытые
+        </Link>
+        <Link
+          href="/my/invoices"
+          className="flex h-12 items-center gap-2 rounded-[var(--radius-card)]
+                     border border-border bg-surface px-4 font-medium"
+        >
+          <Receipt size={18} aria-hidden className="text-muted" />
+          Счета
+        </Link>
+      </div>
 
       {orders.length === 0 ? (
         <EmptyState

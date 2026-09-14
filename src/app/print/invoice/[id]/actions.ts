@@ -2,41 +2,55 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
-import { db } from "@/lib/supabase";
+import { replaceInvoiceItems, updateInvoice } from "@/lib/db/invoices";
 
 export type BuyerState = { ok?: true; error?: string };
 
 /**
- * Реквизиты плательщика вписываются прямо на странице счёта.
+ * Реквизиты плательщика и строки счёта правятся прямо на странице счёта.
  *
- * Так и происходит в жизни: заявку завели по телефону как обычную, а через
- * день клиент оказался организацией и попросил счёт. Возвращать человека
- * в список заявок и искать форму редактирования — лишний путь.
+ * Так и происходит в жизни: ремонт сделали неделю назад, а сегодня клиент
+ * просит счёт на организацию и называет реквизиты по телефону. Идти за ними
+ * в карточку заявки — лишний путь.
  */
 export async function saveBuyer(
-  orderId: string,
+  invoiceId: string,
   _prev: BuyerState,
   formData: FormData,
 ): Promise<BuyerState> {
   await requireAdmin();
 
-  const name = String(formData.get("org_name") ?? "").trim();
+  const name = String(formData.get("buyer_name") ?? "").trim();
   if (!name) return { error: "Впишите название организации" };
 
-  const { error } = await db()
-    .from("orders")
-    .update({
-      is_legal_entity: true,
-      org_name: name,
-      org_bin: String(formData.get("org_bin") ?? "").trim() || null,
-      org_address: String(formData.get("org_address") ?? "").trim() || null,
+  const titles = formData.getAll("item_title").map(String);
+  const prices = formData.getAll("item_price").map(String);
+  const quantities = formData.getAll("item_quantity").map(String);
+
+  const items = titles
+    .map((title, index) => ({
+      title: title.trim(),
+      price: Number(prices[index]?.replace(/\D/g, "")) || 0,
+      quantity: Number(quantities[index]?.replace(/\D/g, "")) || 1,
+    }))
+    .filter((item) => item.title.length > 0);
+
+  if (items.length === 0) return { error: "В счёте должна быть хотя бы одна строка" };
+
+  try {
+    await updateInvoice(invoiceId, {
+      buyer_name: name,
+      buyer_bin: String(formData.get("buyer_bin") ?? "").trim() || null,
+      buyer_address: String(formData.get("buyer_address") ?? "").trim() || null,
       contract_number: String(formData.get("contract_number") ?? "").trim() || null,
-    })
-    .eq("id", orderId);
+    });
+    await replaceInvoiceItems(invoiceId, items);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось сохранить" };
+  }
 
-  if (error) return { error: error.message };
-
-  revalidatePath(`/print/invoice/${orderId}`);
-  revalidatePath("/orders");
+  revalidatePath(`/print/invoice/${invoiceId}`);
+  revalidatePath(`/print/avr/${invoiceId}`);
+  revalidatePath("/invoices");
   return { ok: true };
 }

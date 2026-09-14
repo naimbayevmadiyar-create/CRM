@@ -2,14 +2,12 @@ import { test, expect } from "@playwright/test";
 
 const MASTER_PASSWORD = process.env.E2E_MASTER_PASSWORD ?? "master-test";
 
-test("мастер входит, выбирает имя и отмечает выезд", async ({ page }) => {
+test("мастер входит своим паролем и отмечает выезд", async ({ page }) => {
   await page.goto("/login");
 
+  // имя выбирать не нужно: пароль личный, система сама знает, кто вошёл
   await page.getByLabel("Пароль").fill(MASTER_PASSWORD);
   await page.getByRole("button", { name: "Войти" }).click();
-
-  await expect(page.getByRole("heading", { name: "Кто ты?" })).toBeVisible();
-  await page.getByRole("button", { name: "Валихан" }).click();
 
   await expect(page.getByRole("heading", { name: "Мои заявки" })).toBeVisible();
 
@@ -36,7 +34,6 @@ test("мастер не попадает в админку", async ({ page }) =>
   await page.goto("/login");
   await page.getByLabel("Пароль").fill(MASTER_PASSWORD);
   await page.getByRole("button", { name: "Войти" }).click();
-  await page.getByRole("button", { name: "Валихан" }).click();
 
   await page.goto("/analytics");
   await expect(page).toHaveURL(/\/my$/);

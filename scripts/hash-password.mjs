@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Генератор хешей паролей.
 //   npm run hash -- "пароль админа"
-// Полученную строку положить в ADMIN_PASSWORD_HASH или MASTER_PASSWORD_HASH.
+// Полученную строку положить в ADMIN_PASSWORD_HASH.
+// Пароли мастеров задаются в интерфейсе, в разделе «Мастера».
 // Сам пароль никуда не сохраняется — держите его в менеджере паролей.
 
 import { randomBytes, scryptSync } from "node:crypto";

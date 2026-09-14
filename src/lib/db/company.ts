@@ -20,9 +20,19 @@ export type Company = {
   warranty_months: number;
   repair_term_days: number;
   default_company_share_percent: number;
+  /** Кбе: 17 — юрлицо-резидент, 19 — ИП-резидент. */
+  bank_kbe: string;
+  payment_purpose_code: string;
+  /** Приставка к номеру договора: 000 даёт номера вида 000-004. */
+  contract_prefix: string;
+  /** Ставка налога с оборота, %. Упрощённая декларация в РК — 3 %. */
+  tax_percent: number;
+  logo_image: string | null;
+  stamp_image: string | null;
+  kaspi_qr_image: string | null;
 };
 
-const COLUMNS = "company_name, company_legal_name, company_bin, company_address, company_phone, bank_name, bank_bic, bank_account, diagnostics_price, warranty_months, repair_term_days, default_company_share_percent";
+const COLUMNS = "company_name, company_legal_name, company_bin, company_address, company_phone, bank_name, bank_bic, bank_account, diagnostics_price, warranty_months, repair_term_days, default_company_share_percent, bank_kbe, payment_purpose_code, contract_prefix, tax_percent, logo_image, stamp_image, kaspi_qr_image";
 
 export async function getCompany(): Promise<Company> {
   const { data, error } = await db()

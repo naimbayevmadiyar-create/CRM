@@ -415,3 +415,21 @@ export async function updateOrderDetails(
   const { error } = await db().from("orders").update(patch).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Закрытые заказы, деньги по которым ещё не приняты.
+ *
+ * По ним и видно, кто сдал выручку, а кто ходит с ней в кармане.
+ */
+export async function listUnconfirmedCash(limit = 100): Promise<Order[]> {
+  const { data, error } = await db()
+    .from("orders")
+    .select(COLUMNS)
+    .eq("status", "done")
+    .is("cash_confirmed_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data as Order[];
+}

@@ -29,7 +29,20 @@ const PERIODS = [
 /** Обещание с сайта: мастер приезжает за 60 минут. Проверяем фактом. */
 const PROMISED_MINUTES = 60;
 
-export function AnalyticsView({ data, days }: { data: Analytics; days: number }) {
+export function AnalyticsView({
+  data,
+  days,
+  taxPercent,
+}: {
+  data: Analytics;
+  days: number;
+  taxPercent: number;
+}) {
+  // Налог считается с оборота: по упрощённой декларации облагается весь
+  // доход, а не то, что осталось компании после расчёта с мастером.
+  const tax = Math.round((data.turnover * taxPercent) / 100);
+  const afterTax = data.company_cut - tax;
+
   const toOrder = data.leads > 0 ? Math.round((data.orders / data.leads) * 100) : 0;
   const toDone = data.orders > 0 ? Math.round((data.done / data.orders) * 100) : 0;
 
@@ -100,14 +113,26 @@ export function AnalyticsView({ data, days }: { data: Analytics; days: number })
               />
             </div>
 
-            <div className="mt-3 rounded-[var(--radius-card)] border border-primary/30 bg-primary/5 p-5">
-              <p className="text-sm text-muted">Прибыль компании</p>
-              <p className="mt-1 text-3xl font-semibold text-primary">
-                {formatTenge(data.company_cut)}
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                доля от чистых по закрытым заказам
-              </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
+                <p className="text-sm text-muted">Прибыль компании</p>
+                <p className="mt-1 text-3xl font-semibold">
+                  {formatTenge(data.company_cut)}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  доля от чистых по закрытым заказам
+                </p>
+              </div>
+
+              <div className="rounded-[var(--radius-card)] border border-primary/30 bg-primary/5 p-5">
+                <p className="text-sm text-muted">После налога</p>
+                <p className="mt-1 text-3xl font-semibold text-primary">
+                  {formatTenge(afterTax)}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  минус налог {taxPercent} % с оборота — {formatTenge(tax)}
+                </p>
+              </div>
             </div>
 
             {(data.cash > 0 || data.transfer > 0) && (

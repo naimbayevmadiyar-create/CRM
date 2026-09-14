@@ -8,11 +8,12 @@ import {
   getOrder,
   updateClientDetails,
 } from "@/lib/db/orders";
-import { getProfile } from "@/lib/db/profiles";
+import { getProfile, setMasterSignature } from "@/lib/db/profiles";
 import { getDefaultSharePercent } from "@/lib/db/settings";
 import { nextForMaster } from "@/lib/status";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/settlement";
 import { replaceOrderItems } from "@/lib/db/orderItems";
+import { getInvoice, markInvoicePaid } from "@/lib/db/invoices";
 
 export type ActionResult = { ok?: true; error?: string };
 
@@ -120,5 +121,64 @@ export async function saveClient(
 
   revalidatePath("/my");
   revalidatePath("/orders");
+  return { ok: true };
+}
+
+/**
+ * Мастер отмечает, что по счёту прошла оплата.
+ *
+ * Обычно это безнал: клиент-организация перевела деньги и прислала мастеру
+ * подтверждение. Оплаченным счёт станет только после подтверждения директора —
+ * здесь ставится именно отметка, а не факт.
+ */
+export async function markInvoicePaidByMaster(
+  invoiceId: string,
+  method: string,
+): Promise<ActionResult> {
+  const session = await requireMaster();
+
+  const invoice = await getInvoice(invoiceId);
+  if (!invoice?.order_id) return { error: "Счёт не найден" };
+
+  const order = await getOrder(invoice.order_id);
+  if (!order || order.master_id !== session.masterId) {
+    return { error: "Это счёт по чужой заявке" };
+  }
+
+  const payment = (PAYMENT_METHODS as readonly string[]).includes(method)
+    ? (method as PaymentMethod)
+    : "transfer";
+
+  try {
+    await markInvoicePaid(invoiceId, session.masterId, payment);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось отметить" };
+  }
+
+  revalidatePath("/my/invoices");
+  revalidatePath("/invoices");
+  return { ok: true };
+}
+
+/** Подпись мастера картинкой. Ставится в его акты и заказ-наряды. */
+export async function saveSignature(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const session = await requireMaster();
+
+  const raw = String(formData.get("signature") ?? "").trim();
+  // принимаем только картинку, сделанную браузером: чужая ссылка в документе
+  // означала бы чужой сервер в наших актах
+  const image = raw.startsWith("data:image/") && raw.length < 500_000 ? raw : null;
+  if (raw && !image) return { error: "Файл не подошёл — возьмите фото поменьше" };
+
+  try {
+    await setMasterSignature(session.masterId, image);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось сохранить" };
+  }
+
+  revalidatePath("/my/profile");
   return { ok: true };
 }

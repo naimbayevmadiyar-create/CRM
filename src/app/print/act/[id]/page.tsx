@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { getOrder } from "@/lib/db/orders";
-import { getProfile } from "@/lib/db/profiles";
+import { getMasterSignature, getProfile } from "@/lib/db/profiles";
 import { getCompany } from "@/lib/db/company";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { formatPhone, formatTenge } from "@/lib/format";
+import { contractDate, docNumber } from "@/lib/docs";
+import { DocHeader } from "../../DocHeader";
+import { orderForPrint } from "../../access";
 import { PrintBar } from "../../PrintBar";
 import "../../print.css";
 
@@ -25,41 +25,42 @@ export default async function ActPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
   const { id } = await params;
+  const { order, backHref } = await orderForPrint(id);
 
-  const [order, company] = await Promise.all([getOrder(id), getCompany()]);
-  if (!order) notFound();
+  const company = await getCompany();
 
   // Технику принимает назначенный мастер — подставляем его, а не пустую линию
   const master = order.master_id ? await getProfile(order.master_id) : null;
+  const signature = order.master_id ? await getMasterSignature(order.master_id) : null;
+
+  const number = docNumber(order.number, company.contract_prefix);
+  const date = contractDate(order.contract_date, order.created_at);
 
   return (
     <div className="print-page">
-      <PrintBar backHref="/orders" title={`Акт приёма-передачи · заявка №${order.number}`} />
+      <PrintBar backHref={backHref} title={`Акт приёма-передачи · ${number}`} />
 
       <article className="sheet">
-        <header className="flex items-start justify-between gap-6">
-          <h1>Акт приёма-передачи оборудования в ремонт</h1>
-          <div className="text-right text-[10pt] leading-tight">
-            <div className="font-bold">{company.company_name}</div>
-            {company.company_phone && <div>{formatPhone(company.company_phone)}</div>}
-          </div>
-        </header>
+        <DocHeader
+          company={company}
+          subtitle="Приём техники в ремонт"
+          title="Акт"
+          number={number}
+          date={date}
+        />
+
+        <h1 style={{ marginTop: "5mm" }}>Акт приёма-передачи оборудования в ремонт</h1>
 
         <p>
-          Приложение к Договору № <Fill value={order.contract_number} width="30mm" /> от{" "}
-          <Fill value={order.contract_date} width="30mm" /> г.
+          Приложение к Договору № <b>{number}</b> от {date} г.
         </p>
 
         {/* ФИО частного заказчика оставляем пустой линией: в заявке лежит
             только имя, а в акте нужна полная подпись — впишет от руки. */}
         <p style={{ marginTop: "3mm" }}>
           Заказчик:{" "}
-          <Fill
-            value={order.is_legal_entity ? order.org_name : null}
-            width="70mm"
-          />
+          <Fill value={order.is_legal_entity ? order.org_name : null} width="70mm" />
           {"  "}
           Тел.: <Fill value={formatPhone(order.client_phone)} width="40mm" />
         </p>
@@ -97,7 +98,7 @@ export default async function ActPage({
               <td>1</td>
               <td>{order.serial_number ?? ""}</td>
             </tr>
-            {/* пустые строки — если техники было больше одной */}
+            {/* пустая строка — если техники было больше одной */}
             <tr>
               <td>&nbsp;</td>
               <td />
@@ -114,15 +115,22 @@ export default async function ActPage({
         <div style={{ marginTop: "5mm" }}>
           <p>
             Оборудование передал:{" "}
-            <Fill
-              value={order.is_legal_entity ? order.org_name : null}
-              width="70mm"
-            />{" "}
+            <Fill value={order.is_legal_entity ? order.org_name : null} width="70mm" />{" "}
             Подпись <Fill width="30mm" />
           </p>
-          <p style={{ marginTop: "3mm" }}>
+          <p className="doc-signer" style={{ marginTop: "3mm" }}>
             Оборудование принял: <Fill value={master?.full_name} width="70mm" /> Подпись{" "}
             <Fill width="30mm" />
+            <span className="doc-marks" style={{ left: "45mm" }}>
+              {signature && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={signature} alt="" className="doc-signature" />
+              )}
+              {company.stamp_image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={company.stamp_image} alt="" className="doc-stamp" />
+              )}
+            </span>
           </p>
         </div>
 

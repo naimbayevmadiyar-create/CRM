@@ -98,9 +98,9 @@
 }
 
 .doc-logo {
-  width: 11mm;
-  height: 11mm;
-  border-radius: 2.5mm;
+  max-width: 26mm;
+  max-height: 14mm;
+  object-fit: contain;
 }
 
 .doc-name {
@@ -192,6 +192,48 @@
   gap: 8mm;
   margin-top: 4mm;
   font-size: 10pt;
+}
+
+/* Подпись мастера и печать ложатся поверх линии, как на живом документе */
+.doc-signer {
+  position: relative;
+}
+
+.doc-marks {
+  position: absolute;
+  left: 24mm;
+  top: -6mm;
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+  pointer-events: none;
+}
+
+.doc-signature {
+  max-height: 13mm;
+  max-width: 40mm;
+  object-fit: contain;
+}
+
+.doc-stamp {
+  max-height: 24mm;
+  max-width: 24mm;
+  object-fit: contain;
+  opacity: 0.88;
+}
+
+/* Kaspi QR на счёте: клиент оплачивает с телефона, не переписывая реквизиты */
+.doc-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1mm;
+}
+
+.doc-qr img {
+  width: 24mm;
+  height: 24mm;
+  object-fit: contain;
 }
 
 /* Панель управления печатью — на бумагу не попадает */
