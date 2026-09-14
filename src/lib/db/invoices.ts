@@ -19,7 +19,7 @@ export { invoiceStatus, invoiceTotal, INVOICE_STATUS_LABEL } from "@/lib/invoice
  */
 
 const COLUMNS =
-  "id, number, created_at, order_id, buyer_name, buyer_bin, buyer_address, contract_number, contract_date, paid_marked_at, paid_marked_by, payment_method, confirmed_at, canceled_at, note";
+  "id, number, created_at, order_id, buyer_name, buyer_bin, buyer_address, contract_number, contract_date, issued_on, paid_marked_at, paid_marked_by, payment_method, confirmed_at, canceled_at, note";
 
 const ITEM_COLUMNS = "id, invoice_id, position, title, price, quantity, unit";
 
@@ -216,6 +216,7 @@ export async function updateInvoice(
     buyer_address: string | null;
     contract_number: string | null;
     contract_date: string | null;
+    issued_on: string | null;
     note: string | null;
   }>,
 ): Promise<void> {

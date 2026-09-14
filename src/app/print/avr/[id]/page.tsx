@@ -41,7 +41,7 @@ export default async function AvrPage({
 
   const total = invoiceTotal(items);
   const number = docNumber(invoice.number, company.contract_prefix);
-  const date = longDateRu(invoice.created_at);
+  const date = longDateRu(invoice.issued_on ?? invoice.created_at);
 
   return (
     <div className="print-page">

@@ -21,6 +21,7 @@ export function BuyerForm({
     buyer_bin: string | null;
     buyer_address: string | null;
     contract_number: string | null;
+    issued_on: string | null;
   };
   items: Row[];
 }) {
@@ -69,6 +70,13 @@ export function BuyerForm({
           name="contract_number"
           defaultValue={defaults.contract_number ?? ""}
           placeholder="Необязательно"
+        />
+        {/* счёт нередко просят задним числом — датой работ, а не сегодняшней */}
+        <Field
+          label="Дата счёта"
+          name="issued_on"
+          type="date"
+          defaultValue={defaults.issued_on ?? ""}
         />
       </div>
 

@@ -76,6 +76,22 @@ export function OrderEditForm({
         defaultValue={order.scheduled_at ? isoToLocalInput(order.scheduled_at) : ""}
       />
 
+      {/* заявку часто заводят задним числом — дата должна быть настоящей:
+          от неё считается аналитика и она же попадает в документы */}
+      <Field
+        label="Дата и время заявки"
+        name="created_at"
+        type="datetime-local"
+        defaultValue={isoToLocalInput(order.created_at)}
+      />
+
+      <Field
+        label="Дата в документах"
+        name="contract_date"
+        type="date"
+        defaultValue={order.contract_date ?? ""}
+      />
+
       <Field label="Бренд" name="brand" defaultValue={order.brand ?? ""} />
       <Field label="Модель" name="model" defaultValue={order.model ?? ""} />
       <Field

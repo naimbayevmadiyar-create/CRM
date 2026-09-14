@@ -403,10 +403,18 @@ export async function revertCash(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Правка заявки диспетчером: клиент, техника, время выезда, реквизиты. */
+/**
+ * Правка заявки диспетчером: клиент, техника, время выезда, реквизиты.
+ *
+ * Дату самой заявки тоже разрешаем менять: работу часто заводят задним
+ * числом — сделали в пятницу, записали в понедельник. От этой даты считается
+ * и аналитика, и число в акте, поэтому она должна быть настоящей.
+ */
 export async function updateOrderDetails(
   id: string,
   patch: Partial<{
+    created_at: string;
+    contract_date: string | null;
     client_name: string | null;
     client_phone: string;
     address: string | null;

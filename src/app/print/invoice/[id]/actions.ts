@@ -43,6 +43,7 @@ export async function saveBuyer(
       buyer_bin: String(formData.get("buyer_bin") ?? "").trim() || null,
       buyer_address: String(formData.get("buyer_address") ?? "").trim() || null,
       contract_number: String(formData.get("contract_number") ?? "").trim() || null,
+      issued_on: String(formData.get("issued_on") ?? "").trim() || null,
     });
     await replaceInvoiceItems(invoiceId, items);
   } catch (e) {

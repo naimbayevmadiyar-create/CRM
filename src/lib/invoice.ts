@@ -17,6 +17,8 @@ export type Invoice = {
   buyer_address: string | null;
   contract_number: string | null;
   contract_date: string | null;
+  /** Дата в бланке. Пусто — день создания счёта. */
+  issued_on: string | null;
   paid_marked_at: string | null;
   paid_marked_by: string | null;
   payment_method: PaymentMethod;

@@ -185,8 +185,13 @@ export async function updateOrderAction(
 
   const atServiceCenter = formData.get("at_service_center") === "on";
 
+  // дату заявки правим только если её действительно вписали
+  const createdAt = localInputToIso(String(formData.get("created_at") ?? ""));
+
   try {
     await updateOrderDetails(id, {
+      ...(createdAt ? { created_at: createdAt } : {}),
+      contract_date: String(formData.get("contract_date") ?? "").trim() || null,
       client_name: String(formData.get("client_name") ?? "").trim() || null,
       client_phone: phone,
       address: atServiceCenter

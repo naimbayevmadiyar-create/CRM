@@ -59,6 +59,8 @@ export default async function InvoicePage({
 
   const total = invoiceTotal(items);
   const number = docNumber(invoice.number, company.contract_prefix);
+  // дату можно поставить свою — счёт часто выписывают днём работ
+  const issuedOn = longDateRu(invoice.issued_on ?? invoice.created_at);
 
   return (
     <div className="print-page">
@@ -113,7 +115,7 @@ export default async function InvoicePage({
         </table>
 
         <h1 style={{ textAlign: "center", fontSize: "14pt" }}>
-          Счёт на оплату № {number} от {longDateRu(invoice.created_at)}
+          Счёт на оплату № {number} от {issuedOn}
         </h1>
 
         <p>
@@ -215,6 +217,7 @@ export default async function InvoicePage({
           buyer_bin: invoice.buyer_bin,
           buyer_address: invoice.buyer_address,
           contract_number: invoice.contract_number,
+          issued_on: invoice.issued_on,
         }}
         items={items.map((item) => ({
           title: item.title,
