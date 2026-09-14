@@ -189,25 +189,29 @@ export default async function InvoicePage({
           </p>
         </div>
 
-        <div className="doc-sign doc-signer">
-          <span>
-            Исполнитель / Бухгалтер{" "}
-            <span className="fill" style={{ minWidth: "50mm" }} />
-          </span>
-          {company.kaspi_qr_image && (
-            <span className="doc-qr">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={company.kaspi_qr_image} alt="" />
-              <span className="doc-sub">Kaspi QR</span>
+        <div className="doc-pay">
+          <div className="doc-signer">
+            <p>
+              Исполнитель / Бухгалтер{" "}
+              <span className="fill" style={{ minWidth: "50mm" }} />
+            </p>
+            <span className="doc-marks" style={{ left: "45mm", top: "-10mm" }}>
+              {company.stamp_image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={company.stamp_image} alt="" className="doc-stamp" />
+              )}
             </span>
+          </div>
+
+          {company.kaspi_qr_image && (
+            <div className="doc-qr">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={company.kaspi_qr_image} alt="Kaspi QR для оплаты" />
+              <span>Оплатить с телефона<br />Kaspi QR</span>
+            </div>
           )}
-          <span className="doc-marks" style={{ left: "40mm", top: "-8mm" }}>
-            {company.stamp_image && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={company.stamp_image} alt="" className="doc-stamp" />
-            )}
-          </span>
         </div>
+
       </article>
 
       <BuyerForm
