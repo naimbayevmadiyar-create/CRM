@@ -30,10 +30,20 @@ import { OrderEditForm } from "./OrderEditForm";
 
 const INITIAL: OrderFormState = {};
 
+/*
+  Отменённые заявки по умолчанию не показываем: они уже не работа, а помеха.
+  Найти их всё равно можно — отдельным пунктом фильтра.
+*/
 const FILTERS: { value: string; label: string }[] = [
+  { value: "", label: "Кроме отменённых" },
   { value: "active", label: "В работе" },
-  { value: "", label: "Все" },
-  ...STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })),
+  ...STATUSES.filter((s) => s !== "canceled").map((s) => ({
+    value: s,
+    label: STATUS_LABEL[s],
+  })),
+  { value: "unpaid", label: "Ждут оплаты" },
+  { value: "canceled", label: "Отменённые" },
+  { value: "all", label: "Все подряд" },
 ];
 
 export function OrdersView({
@@ -67,10 +77,28 @@ export function OrdersView({
   // мелкую технику часто приносят в офис — тогда адрес выезда не нужен
   const [atServiceCenter, setAtServiceCenter] = useState(false);
 
-  const grouped = STATUSES.map((s) => ({
-    status: s,
-    items: orders.filter((o) => o.status === s),
-  })).filter((g) => g.items.length > 0);
+  /*
+    Группы на экране — это этапы работы, а не значения поля в базе.
+    Выполненные разделены надвое: пока деньги не в кассе, заявка не закрыта
+    по-настоящему — именно эти и надо видеть отдельной кучкой.
+  */
+  const grouped = [
+    ...STATUSES.filter((s) => s !== "done").map((s) => ({
+      key: s,
+      label: STATUS_LABEL[s],
+      items: orders.filter((o) => o.status === s),
+    })),
+    {
+      key: "waiting-cash",
+      label: "Ждут оплаты",
+      items: orders.filter((o) => o.status === "done" && !o.cash_confirmed_at),
+    },
+    {
+      key: "done",
+      label: "Выполнены и оплачены",
+      items: orders.filter((o) => o.status === "done" && o.cash_confirmed_at),
+    },
+  ].filter((g) => g.items.length > 0);
 
   return (
     <div className="space-y-6">
@@ -294,9 +322,9 @@ export function OrdersView({
         />
       ) : (
         grouped.map((group) => (
-          <section key={group.status}>
+          <section key={group.key}>
             <h2 className="mb-2 text-sm font-medium text-muted">
-              {STATUS_LABEL[group.status]} · {group.items.length}
+              {group.label} · {group.items.length}
             </h2>
             <ul className="space-y-2">
               {group.items.map((order) => (

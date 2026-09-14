@@ -16,6 +16,8 @@ export const metadata: Metadata = { title: "Заявки" };
 
 function parseStatus(value?: string): OrdersFilter["status"] {
   if (value === "active") return "active";
+  if (value === "all") return "all";
+  if (value === "unpaid") return "unpaid";
   return (STATUSES as readonly string[]).includes(value ?? "")
     ? (value as Status)
     : undefined;

@@ -59,8 +59,12 @@ export async function listOrdersForMaster(masterId: string): Promise<Order[]> {
 export type OrdersFilter = {
   /** Поиск по телефону, имени или адресу. */
   query?: string;
-  /** Только один этап; «активные» — все рабочие сразу. */
-  status?: Status | "active";
+  /**
+   * Один этап, «активные» — все рабочие сразу, «все» — вместе с отменёнными.
+   * Ничего не задано — показываем всё, кроме отменённых: они только мешают
+   * смотреть на работу.
+   */
+  status?: Status | "active" | "all" | "unpaid";
   masterId?: string;
   limit?: number;
 };
@@ -74,8 +78,15 @@ export async function listOrdersForAdmin(filter: OrdersFilter = {}): Promise<Ord
 
   if (filter.status === "active") {
     request = request.in("status", ACTIVE_STATUSES);
+  } else if (filter.status === "unpaid") {
+    // работа сделана, а деньги ещё не в кассе
+    request = request.eq("status", "done").is("cash_confirmed_at", null);
+  } else if (filter.status === "all") {
+    // ничего не отсекаем — сюда заходят, когда ищут отменённую заявку
   } else if (filter.status) {
     request = request.eq("status", filter.status);
+  } else {
+    request = request.neq("status", "canceled");
   }
 
   if (filter.masterId) request = request.eq("master_id", filter.masterId);

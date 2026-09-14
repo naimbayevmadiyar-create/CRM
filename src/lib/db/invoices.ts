@@ -23,10 +23,19 @@ const COLUMNS =
 
 const ITEM_COLUMNS = "id, invoice_id, position, title, price, quantity, unit";
 
-export async function listInvoices(limit = 100): Promise<Invoice[]> {
-  const { data, error } = await db()
-    .from("invoices")
-    .select(COLUMNS)
+/**
+ * Счета для админки.
+ *
+ * Отменённые по умолчанию скрыты: счёт отменили — значит, его больше нет,
+ * и висеть в списке он не должен. Посмотреть их всё равно можно отдельно.
+ */
+export async function listInvoices(
+  { includeCanceled = false, limit = 100 } = {},
+): Promise<Invoice[]> {
+  let request = db().from("invoices").select(COLUMNS);
+  if (!includeCanceled) request = request.is("canceled_at", null);
+
+  const { data, error } = await request
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -53,6 +62,7 @@ export async function listInvoicesForMaster(
     .from("invoices")
     .select(COLUMNS)
     .in("order_id", ids)
+    .is("canceled_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 

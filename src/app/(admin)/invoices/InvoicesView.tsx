@@ -35,7 +35,13 @@ const TONE: Record<InvoiceStatus, string> = {
  * Отдельный раздел, потому что счёт живёт своей жизнью: выставили сегодня,
  * оплатили через неделю, подтвердили ещё позже. В заявке этому места нет.
  */
-export function InvoicesView({ rows }: { rows: Row[] }) {
+export function InvoicesView({
+  rows,
+  showingCanceled,
+}: {
+  rows: Row[];
+  showingCanceled: boolean;
+}) {
   const [pending, startTransition] = useTransition();
 
   const waiting = rows.filter((row) => invoiceStatus(row.invoice) === "awaiting").length;
@@ -54,12 +60,21 @@ export function InvoicesView({ rows }: { rows: Row[] }) {
           </p>
         </div>
 
-        <form action={() => startTransition(() => newInvoiceAction())}>
-          <Button type="submit" disabled={pending}>
-            <Plus size={16} aria-hidden />
-            Новый счёт
-          </Button>
-        </form>
+        <div className="flex items-center gap-3">
+          <Link
+            href={showingCanceled ? "/invoices" : "/invoices?canceled=1"}
+            className="text-sm text-muted underline underline-offset-4"
+          >
+            {showingCanceled ? "Скрыть отменённые" : "Показать отменённые"}
+          </Link>
+
+          <form action={() => startTransition(() => newInvoiceAction())}>
+            <Button type="submit" disabled={pending}>
+              <Plus size={16} aria-hidden />
+              Новый счёт
+            </Button>
+          </form>
+        </div>
       </header>
 
       {rows.length === 0 ? (
