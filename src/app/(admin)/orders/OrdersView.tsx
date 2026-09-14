@@ -90,7 +90,7 @@ export function OrdersView({
     })),
     {
       key: "waiting-cash",
-      label: "Ждут оплаты",
+      label: "Ждут расчёта",
       items: orders.filter((o) => o.status === "done" && !o.cash_confirmed_at),
     },
     {
@@ -360,6 +360,13 @@ function OrderRow({
 
   const masterName = masters.find((m) => m.id === order.master_id)?.full_name ?? null;
 
+  /*
+    Наличные мастер несёт в кассу, безнал приходит на счёт сам — и тогда
+    должок в обратную сторону: компания не рассчиталась с мастером.
+    Кнопка одна, а называется по-разному, иначе безнал читается как недосдача.
+  */
+  const byTransfer = order.payment_method === "transfer";
+
   const canCancel = order.status !== "done" && order.status !== "canceled";
 
   async function onAssign(next: string) {
@@ -426,7 +433,13 @@ function OrderRow({
                 : "bg-warning/12 text-warning")
             }
           >
-            {order.cash_confirmed_at ? "Деньги в кассе" : "Деньги не сданы"}
+            {order.cash_confirmed_at
+              ? byTransfer
+                ? "С мастером рассчитались"
+                : "Деньги в кассе"
+              : byTransfer
+                ? "Мастеру не выплачено"
+                : "Деньги не сданы"}
           </span>
         )}
       </div>
@@ -465,7 +478,8 @@ function OrderRow({
           {order.cash_confirmed_at ? (
             <span className="inline-flex items-center gap-1.5 text-sm text-muted">
               <Check size={15} aria-hidden className="text-success" />
-              Оплата подтверждена {formatDateTime(order.cash_confirmed_at)}
+              {byTransfer ? "Выплачено" : "Принято"}{" "}
+              {formatDateTime(order.cash_confirmed_at)}
               <button
                 onClick={onRevertCash}
                 disabled={busy}
@@ -483,7 +497,7 @@ function OrderRow({
                          disabled:opacity-60"
             >
               <BanknoteArrowUp size={16} aria-hidden />
-              Подтвердить оплату
+              {byTransfer ? "Рассчитался с мастером" : "Принял деньги"}
             </button>
           )}
         </div>
