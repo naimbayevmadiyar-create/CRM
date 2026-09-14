@@ -2,13 +2,15 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySession, type SessionPayload } from "@/lib/session";
-import { getPasswordVersion } from "@/lib/db/settings";
+import { getMasterAuthState } from "@/lib/db/profiles";
 
 /**
  * Кто сейчас на той стороне.
  *
  * Единственное место, где страницы узнают роль. Здесь же сверяется версия
- * пароля мастеров: админ сменил пароль — все мастерские сессии отваливаются.
+ * пароля мастера: сменили пароль или отключили человека — его сессия
+ * заканчивается на следующем запросе, остальных это не трогает.
+ *
  * В proxy.ts эта сверка не делается намеренно, чтобы не ходить в базу
  * на каждый запрос, включая статику.
  */
@@ -21,8 +23,9 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!payload) return null;
 
   if (payload.role === "master") {
-    const current = await getPasswordVersion();
-    if (payload.pv !== current) return null;
+    if (!payload.masterId) return null;
+    const state = await getMasterAuthState(payload.masterId);
+    if (!state || !state.is_active || state.password_version !== payload.pv) return null;
   }
 
   return payload;
@@ -34,21 +37,20 @@ export async function requireAdmin(): Promise<SessionPayload> {
   return session;
 }
 
-/**
- * Пароль мастера введён, но имя ещё могло быть не выбрано.
- * Нужна отдельно от requireMaster, иначе экран выбора имени
- * отправлял бы сам на себя по кругу.
- */
-export async function requireMasterSession(): Promise<SessionPayload> {
-  const session = await getSession();
-  if (!session || session.role !== "master") redirect("/login");
-  return session;
-}
-
 export async function requireMaster(): Promise<SessionPayload & { masterId: string }> {
   const session = await getSession();
-  if (!session || session.role !== "master") redirect("/login");
-  // пароль ввели, но имя ещё не выбрали
-  if (!session.masterId) redirect("/who");
+  if (!session || session.role !== "master" || !session.masterId) redirect("/login");
   return { ...session, masterId: session.masterId };
+}
+
+/**
+ * Любой вошедший: админ или мастер.
+ *
+ * Нужна документам — печатать акт и заказ-наряд должен и мастер на выезде,
+ * но только по своей заявке. Проверку «своя ли» делает сама страница.
+ */
+export async function requireSession(): Promise<SessionPayload> {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  return session;
 }

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createHash } from "node:crypto";
 import { verifyPassword } from "@/lib/passwords";
 import { signSession, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/session";
-import { getPasswordVersion } from "@/lib/db/settings";
+import { listMasterCredentials } from "@/lib/db/profiles";
 import { db } from "@/lib/supabase";
 
 const WINDOW_SECONDS = 15 * 60;
@@ -38,21 +38,27 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
 
   const adminHash = process.env.ADMIN_PASSWORD_HASH ?? "";
-  const masterHash = process.env.MASTER_PASSWORD_HASH ?? "";
   const store = await cookies();
 
   if (adminHash && verifyPassword(password, adminHash)) {
-    // у админа версия пароля мастеров не проверяется, поэтому храним ноль
+    // у админа версия пароля мастера не проверяется, поэтому храним ноль
     const token = await signSession({ role: "admin", pv: 0 });
     store.set(SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
     redirect("/orders");
   }
 
-  if (masterHash && verifyPassword(password, masterHash)) {
-    const pv = await getPasswordVersion();
-    const token = await signSession({ role: "master", pv });
+  // Логина нет: кто вошёл — понимаем по тому, чей пароль совпал. Перебираем
+  // всех активных мастеров, потому что пароль у каждого свой.
+  for (const master of await listMasterCredentials()) {
+    if (!verifyPassword(password, master.password_hash)) continue;
+
+    const token = await signSession({
+      role: "master",
+      masterId: master.id,
+      pv: master.password_version,
+    });
     store.set(SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
-    redirect("/who");
+    redirect("/my");
   }
 
   await db().from("auth_attempts").insert({ ip_hash: hash });

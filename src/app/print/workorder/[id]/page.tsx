@@ -72,7 +72,7 @@ export default async function WorkOrderPage({
             <p>
               <span className="doc-label">ФИО</span>
               <Fill
-                value={order.is_legal_entity ? order.org_name : order.client_name}
+                value={order.is_legal_entity ? order.org_name : null}
                 width="45mm"
               />
             </p>
@@ -192,7 +192,7 @@ export default async function WorkOrderPage({
         <div className="doc-sign">
           <span>
             Заказчик: <Fill
-              value={order.is_legal_entity ? order.org_name : order.client_name}
+              value={order.is_legal_entity ? order.org_name : null}
               width="55mm"
             />
           </span>

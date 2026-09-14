@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { AlertTriangle, Check, Copy } from "lucide-react";
+import { KeyRound, Pencil, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -9,49 +9,60 @@ import { formatPhone } from "@/lib/format";
 import type { Profile } from "@/lib/db/profiles";
 import {
   addMaster,
-  rotateMasterPassword,
+  changeMasterPassword,
+  saveMaster,
   toggleMaster,
   type MasterFormState,
-  type RotateState,
 } from "./actions";
 
-const ADD_INITIAL: MasterFormState = {};
-const ROTATE_INITIAL: RotateState = {};
+const INITIAL: MasterFormState = {};
 
-export function MastersView({ masters }: { masters: Profile[] }) {
-  const [addState, addAction, adding] = useActionState(addMaster, ADD_INITIAL);
-  const [rotateState, rotateAction, rotating] = useActionState(
-    rotateMasterPassword,
-    ROTATE_INITIAL,
-  );
-  const [copied, setCopied] = useState(false);
+export function MastersView({
+  masters,
+  defaultSharePercent,
+}: {
+  masters: Profile[];
+  defaultSharePercent: number;
+}) {
+  const [addState, addAction, adding] = useActionState(addMaster, INITIAL);
 
-  async function copyHash(hash: string) {
-    try {
-      await navigator.clipboard.writeText(hash);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
+  const withoutPassword = masters.filter((m) => m.is_active && !m.has_password);
 
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-2xl font-semibold">Мастера</h1>
         <p className="mt-1 text-muted">
-          Мастер выбирает своё имя на входе. Отключённые в списке не показываются.
+          У каждого свой пароль — по нему система и понимает, кто вошёл. Зайти
+          под чужим именем нельзя.
         </p>
       </header>
 
+      {withoutPassword.length > 0 && (
+        <p className="flex items-start gap-2 rounded-[var(--radius-card)] border border-warning/40
+                      bg-warning/5 p-4 text-sm">
+          <ShieldAlert size={18} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+          <span>
+            Без пароля не смогут войти: <b>{withoutPassword.map((m) => m.full_name).join(", ")}</b>.
+            Задайте каждому свой и передайте лично.
+          </span>
+        </p>
+      )}
+
       <section>
         {masters.length === 0 ? (
-          <EmptyState title="Мастеров нет" hint="Добавьте первого — он появится на экране входа." />
+          <EmptyState
+            title="Мастеров нет"
+            hint="Добавьте первого и задайте ему пароль — с ним он и будет входить."
+          />
         ) : (
           <ul className="space-y-2">
             {masters.map((master) => (
-              <MasterRow key={master.id} master={master} />
+              <MasterRow
+                key={master.id}
+                master={master}
+                defaultSharePercent={defaultSharePercent}
+              />
             ))}
           </ul>
         )}
@@ -59,83 +70,54 @@ export function MastersView({ masters }: { masters: Profile[] }) {
 
       <section className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
         <h2 className="mb-4 text-lg font-semibold">Добавить мастера</h2>
-        <form action={addAction} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <form action={addAction} className="grid gap-4 sm:grid-cols-2">
           <Field label="Имя" name="full_name" placeholder="Валихан" required />
           <Field label="Телефон" name="phone" type="tel" placeholder="Необязательно" />
-          <Button type="submit" disabled={adding} className="sm:mb-0">
-            {adding ? "Добавляем…" : "Добавить"}
-          </Button>
+          <Field
+            label="Пароль"
+            name="password"
+            type="text"
+            autoComplete="off"
+            placeholder="Минимум 6 символов"
+          />
+          <Field
+            label={`Доля компании, % (по умолчанию ${defaultSharePercent})`}
+            name="share_percent"
+            type="number"
+            min={0}
+            max={100}
+            placeholder="Например, 40"
+          />
+          <div className="sm:col-span-2">
+            <Button type="submit" disabled={adding}>
+              {adding ? "Добавляем…" : "Добавить"}
+            </Button>
+          </div>
           {addState.error && (
-            <p role="alert" className="text-sm text-danger sm:col-span-3">
+            <p role="alert" className="text-sm text-danger sm:col-span-2">
               {addState.error}
             </p>
           )}
         </form>
       </section>
-
-      <section className="rounded-[var(--radius-card)] border border-warning/40 bg-surface p-5">
-        <div className="mb-3 flex items-start gap-2">
-          <AlertTriangle size={20} className="mt-0.5 shrink-0 text-warning" aria-hidden />
-          <div>
-            <h2 className="text-lg font-semibold">Сменить пароль мастеров</h2>
-            <p className="mt-1 text-sm text-muted">
-              Все мастера выйдут немедленно и должны будут ввести новый пароль
-              и заново выбрать имя. Делайте это, когда кто-то уволился.
-            </p>
-          </div>
-        </div>
-
-        <form action={rotateAction} className="flex flex-wrap items-end gap-3">
-          <Field
-            label="Новый пароль"
-            name="password"
-            type="text"
-            autoComplete="off"
-            placeholder="Минимум 6 символов"
-            className="w-64"
-          />
-          <Button type="submit" variant="danger" disabled={rotating}>
-            {rotating ? "Меняем…" : "Сменить"}
-          </Button>
-        </form>
-
-        {rotateState.error && (
-          <p role="alert" className="mt-3 text-sm text-danger">
-            {rotateState.error}
-          </p>
-        )}
-
-        {rotateState.hash && (
-          <div className="mt-4 rounded-[var(--radius-card)] bg-surface2 p-4">
-            <p className="mb-2 text-sm">
-              Пароль сменён, версия {rotateState.version}. Осталось положить новый хеш
-              в переменную <code className="font-mono">MASTER_PASSWORD_HASH</code> на Vercel
-              и передеплоить — иначе новый пароль не подойдёт.
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="min-w-0 flex-1 truncate rounded bg-surface px-3 py-2 font-mono text-xs">
-                {rotateState.hash}
-              </code>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => copyHash(rotateState.hash!)}
-                aria-label="Скопировать хеш"
-              >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                {copied ? "Скопировано" : "Копировать"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
 
-function MasterRow({ master }: { master: Profile }) {
+function MasterRow({
+  master,
+  defaultSharePercent,
+}: {
+  master: Profile;
+  defaultSharePercent: number;
+}) {
   const [busy, setBusy] = useState(false);
   const [active, setActive] = useState(master.is_active);
+  const [editing, setEditing] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+
+  const [saveState, saveAction, saving] = useActionState(saveMaster, INITIAL);
+  const [passState, passAction, changing] = useActionState(changeMasterPassword, INITIAL);
 
   async function onToggle() {
     setBusy(true);
@@ -147,19 +129,112 @@ function MasterRow({ master }: { master: Profile }) {
   }
 
   return (
-    <li className="flex items-center gap-4 rounded-[var(--radius-card)] border border-border bg-surface px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{master.full_name}</p>
-        {master.phone && <p className="text-sm text-muted">{formatPhone(master.phone)}</p>}
+    <li className="rounded-[var(--radius-card)] border border-border bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-medium">{master.full_name}</p>
+          <p className="text-sm text-muted">
+            {master.phone ? formatPhone(master.phone) : "телефон не указан"} ·{" "}
+            доля компании {master.share_percent ?? defaultSharePercent} %
+            {master.share_percent == null && " (общая)"}
+          </p>
+        </div>
+
+        {!master.has_password && (
+          <span className="rounded-full bg-warning/12 px-2.5 py-1 text-xs font-medium text-warning">
+            Без пароля
+          </span>
+        )}
+
+        <span className={active ? "text-sm text-success" : "text-sm text-muted"}>
+          {active ? "Работает" : "Отключён"}
+        </span>
+
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setEditing((v) => !v)}
+            aria-expanded={editing}
+          >
+            <Pencil size={15} aria-hidden />
+            Изменить
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setPasswordOpen((v) => !v)}
+            aria-expanded={passwordOpen}
+          >
+            <KeyRound size={15} aria-hidden />
+            Пароль
+          </Button>
+          <Button type="button" variant="ghost" onClick={onToggle} disabled={busy}>
+            {active ? "Отключить" : "Включить"}
+          </Button>
+        </div>
       </div>
 
-      <span className={active ? "text-sm text-success" : "text-sm text-muted"}>
-        {active ? "Работает" : "Отключён"}
-      </span>
+      {editing && (
+        <form action={saveAction} className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_10rem_auto] sm:items-end">
+          <input type="hidden" name="id" value={master.id} />
+          <Field label="Имя" name="full_name" defaultValue={master.full_name} required />
+          <Field
+            label="Телефон"
+            name="phone"
+            type="tel"
+            defaultValue={master.phone ?? ""}
+          />
+          <Field
+            label="Доля компании, %"
+            name="share_percent"
+            type="number"
+            min={0}
+            max={100}
+            defaultValue={master.share_percent ?? ""}
+            placeholder={String(defaultSharePercent)}
+          />
+          <Button type="submit" disabled={saving}>
+            {saving ? "Сохраняем…" : "Сохранить"}
+          </Button>
+          {saveState.error && (
+            <p role="alert" className="text-sm text-danger sm:col-span-4">
+              {saveState.error}
+            </p>
+          )}
+          {saveState.ok && (
+            <p className="text-sm text-success sm:col-span-4">Сохранено</p>
+          )}
+        </form>
+      )}
 
-      <Button type="button" variant="ghost" onClick={onToggle} disabled={busy}>
-        {active ? "Отключить" : "Включить"}
-      </Button>
+      {passwordOpen && (
+        <form action={passAction} className="mt-3 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="id" value={master.id} />
+          <Field
+            label={master.has_password ? "Новый пароль" : "Пароль"}
+            name="password"
+            type="text"
+            autoComplete="off"
+            placeholder="Минимум 6 символов"
+            className="w-64"
+          />
+          <Button type="submit" disabled={changing}>
+            {changing ? "Меняем…" : "Задать"}
+          </Button>
+          <p className="w-full text-xs text-muted">
+            {master.has_password
+              ? "Старый пароль перестанет работать сразу, этого мастера выкинет из системы."
+              : "Передайте пароль лично — входить он будет только им."}
+          </p>
+          {passState.error && (
+            <p role="alert" className="w-full text-sm text-danger">
+              {passState.error}
+            </p>
+          )}
+          {passState.ok && <p className="w-full text-sm text-success">Пароль задан</p>}
+        </form>
+      )}
     </li>
   );
 }

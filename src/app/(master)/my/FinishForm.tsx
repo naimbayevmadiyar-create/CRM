@@ -19,18 +19,18 @@ import { ItemsEditor, type DraftItem } from "./ItemsEditor";
  * нажмёт «Готово», и может поймать свою же опечатку.
  */
 export function FinishForm({
-  defaultSharePercent,
+  sharePercent,
   pending,
   onSubmit,
 }: {
-  defaultSharePercent: number;
+  /** Доля компании этого мастера. Меняет её только директор. */
+  sharePercent: number;
   pending: boolean;
   onSubmit: (report: {
     total: number;
     expenses: number;
     expensesNote: string;
     paymentMethod: PaymentMethod;
-    sharePercent: number;
     items: DraftItem[];
   }) => void;
 }) {
@@ -38,8 +38,6 @@ export function FinishForm({
   const [expenses, setExpenses] = useState("");
   const [note, setNote] = useState("");
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
-  const [sharePercent, setSharePercent] = useState(defaultSharePercent);
-  const [shareOpen, setShareOpen] = useState(false);
   const [items, setItems] = useState<DraftItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,7 +72,6 @@ export function FinishForm({
       expenses: expensesValue,
       expensesNote: note,
       paymentMethod: payment,
-      sharePercent,
       items,
     });
   }
@@ -139,34 +136,7 @@ export function FinishForm({
           <Row
             label={`Доля компании · ${settlement.sharePercent}%`}
             value={formatTenge(settlement.companyCut)}
-            action={
-              <button
-                type="button"
-                onClick={() => setShareOpen((v) => !v)}
-                className="text-sm text-primary underline underline-offset-4"
-              >
-                изменить
-              </button>
-            }
           />
-
-          {shareOpen && (
-            <div className="my-2 flex items-center gap-2">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={sharePercent}
-                onChange={(e) => setSharePercent(Number(e.target.value))}
-                aria-label="Доля компании в процентах"
-                className="h-11 w-24 rounded-[var(--radius-card)] border border-border
-                           bg-surface px-3 outline-none focus:border-primary"
-              />
-              <span className="text-sm text-muted">
-                процентов от чистых — только для этого заказа
-              </span>
-            </div>
-          )}
 
           <div className="mt-2 border-t border-border pt-2">
             <Row

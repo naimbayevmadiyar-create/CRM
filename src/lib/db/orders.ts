@@ -30,14 +30,17 @@ export type Order = {
   org_name: string | null;
   org_bin: string | null;
   org_address: string | null;
+  at_service_center: boolean;
   source: Source;
+  /** Когда директор подтвердил, что деньги по заказу дошли. */
+  cash_confirmed_at: string | null;
 };
 
 export type Actor = { id?: string; role: "admin" | "master" };
 
 // Строка колонок должна быть цельным литералом: supabase-js разбирает её
 // на уровне типов, а склейка через + превращает её в обычный string.
-const COLUMNS = "id, number, created_at, client_name, client_phone, address, appliance, problem, status, master_id, scheduled_at, total_amount, expenses, expenses_note, payment_method, company_share_percent, brand, model, serial_number, contract_number, contract_date, is_legal_entity, org_name, org_bin, org_address, source";
+const COLUMNS = "id, number, created_at, client_name, client_phone, address, appliance, problem, status, master_id, scheduled_at, total_amount, expenses, expenses_note, payment_method, company_share_percent, brand, model, serial_number, contract_number, contract_date, is_legal_entity, org_name, org_bin, org_address, at_service_center, source, cash_confirmed_at";
 
 /** Заявки мастера: только его и только активные. Архив ему не нужен. */
 export async function listOrdersForMaster(masterId: string): Promise<Order[]> {
@@ -146,6 +149,7 @@ export async function createOrder(input: {
   org_name?: string;
   org_bin?: string;
   org_address?: string;
+  at_service_center?: boolean;
   source?: Source;
   lead_id?: string;
   created_by?: string;
@@ -168,6 +172,7 @@ export async function createOrder(input: {
       org_name: input.org_name ?? null,
       org_bin: input.org_bin ?? null,
       org_address: input.org_address ?? null,
+      at_service_center: input.at_service_center ?? false,
       source: input.source ?? "direct",
       lead_id: input.lead_id ?? null,
       created_by: input.created_by ?? null,
@@ -285,5 +290,128 @@ export async function cancelOrder(
     .from("orders")
     .update({ status: "canceled", cancel_reason: reason || null })
     .eq("id", id);
+  if (error) throw error;
+}
+
+export type OrderEvent = {
+  id: string;
+  from_status: Status | null;
+  to_status: Status;
+  actor_role: "admin" | "master" | null;
+  note: string | null;
+  created_at: string;
+};
+
+/**
+ * История этапов заявки.
+ *
+ * Её пишет триггер в базе, а не приложение, поэтому по ней видно, как
+ * заявка шла на самом деле: когда мастер выехал, когда закрыл, кто отменил.
+ */
+export async function listOrderHistory(orderId: string): Promise<OrderEvent[]> {
+  const { data, error } = await db()
+    .from("order_events")
+    .select("id, from_status, to_status, actor_role, note, created_at")
+    .eq("order_id", orderId)
+    .order("created_at");
+
+  if (error) throw error;
+  return (data ?? []) as OrderEvent[];
+}
+
+/** Заявки мастера, которые он уже закрыл. Нужны, чтобы поднять свой отчёт. */
+export async function listClosedOrdersForMaster(
+  masterId: string,
+  limit = 30,
+): Promise<Order[]> {
+  const { data, error } = await db()
+    .from("orders")
+    .select(COLUMNS)
+    .eq("master_id", masterId)
+    .in("status", ["done", "canceled"])
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return data as Order[];
+}
+
+/**
+ * Уточнение данных клиента.
+ *
+ * Мастер на месте узнаёт настоящее имя и точный адрес — телефон и техника
+ * при этом не трогаются: их меняет только диспетчер.
+ */
+export async function updateClientDetails(
+  id: string,
+  patch: { client_name?: string; address?: string },
+  actor: Actor,
+): Promise<void> {
+  const order = await getOrder(id);
+  if (!order) throw new Error("Заявка не найдена");
+  if (actor.role === "master" && order.master_id !== actor.id) {
+    throw new Error("Эта заявка назначена другому мастеру");
+  }
+
+  const { error } = await db()
+    .from("orders")
+    .update({
+      client_name: patch.client_name?.trim() || null,
+      address: patch.address?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+/**
+ * Подтверждение, что деньги по заказу получены.
+ *
+ * Мастер отмечает сумму сам, но пока директор не подтвердил приём, заказ
+ * висит как «деньги не в кассе» — по этому признаку и видно, кто сдал,
+ * а кто нет.
+ */
+export async function confirmCash(id: string, adminId?: string): Promise<void> {
+  const { error } = await db()
+    .from("orders")
+    .update({
+      cash_confirmed_at: new Date().toISOString(),
+      cash_confirmed_by: adminId ?? null,
+    })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function revertCash(id: string): Promise<void> {
+  const { error } = await db()
+    .from("orders")
+    .update({ cash_confirmed_at: null, cash_confirmed_by: null })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+/** Правка заявки диспетчером: клиент, техника, время выезда, реквизиты. */
+export async function updateOrderDetails(
+  id: string,
+  patch: Partial<{
+    client_name: string | null;
+    client_phone: string;
+    address: string | null;
+    appliance: ApplianceKind;
+    problem: string | null;
+    scheduled_at: string | null;
+    brand: string | null;
+    model: string | null;
+    serial_number: string | null;
+    at_service_center: boolean;
+    is_legal_entity: boolean;
+    org_name: string | null;
+    org_bin: string | null;
+    org_address: string | null;
+  }>,
+): Promise<void> {
+  const { error } = await db().from("orders").update(patch).eq("id", id);
   if (error) throw error;
 }

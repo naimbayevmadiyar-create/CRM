@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { FileText, Printer, Receipt, Search, X } from "lucide-react";
+import { BanknoteArrowUp, Check, FileText, Pencil, Printer, Receipt, Search, X } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { OrderMoney } from "@/components/OrderMoney";
 import { LeadStrip } from "@/components/LeadStrip";
@@ -16,7 +16,16 @@ import { STATUS_LABEL, STATUSES } from "@/lib/status";
 import type { Order } from "@/lib/db/orders";
 import type { Lead } from "@/lib/db/leads";
 import type { Profile } from "@/lib/db/profiles";
-import { assignAction, cancelAction, createOrderAction, type OrderFormState } from "./actions";
+import {
+  assignAction,
+  cancelAction,
+  confirmCashAction,
+  createOrderAction,
+  revertCashAction,
+  type OrderFormState,
+} from "./actions";
+import { OrderDetails } from "./OrderDetails";
+import { OrderEditForm } from "./OrderEditForm";
 
 const INITIAL: OrderFormState = {};
 
@@ -51,6 +60,8 @@ export function OrdersView({
   // блок реквизитов показываем, только если заказчик организация:
   // физлицам эти поля мешают
   const [isLegal, setIsLegal] = useState(false);
+  // мелкую технику часто приносят в офис — тогда адрес выезда не нужен
+  const [atServiceCenter, setAtServiceCenter] = useState(false);
 
   const grouped = STATUSES.map((s) => ({
     status: s,
@@ -147,7 +158,25 @@ export function OrdersView({
               autoFocus
             />
             <Field label="Имя" name="client_name" placeholder="Необязательно" />
-            <Field label="Адрес" name="address" placeholder="Улица, дом, квартира" />
+
+            {atServiceCenter ? (
+              <p className="self-end pb-3 text-sm text-muted">
+                Технику принесут к нам — адрес не нужен
+              </p>
+            ) : (
+              <Field label="Адрес" name="address" placeholder="Улица, дом, квартира" />
+            )}
+
+            <label className="flex items-center gap-2.5 sm:col-span-2">
+              <input
+                type="checkbox"
+                name="at_service_center"
+                checked={atServiceCenter}
+                onChange={(e) => setAtServiceCenter(e.target.checked)}
+                className="h-5 w-5 accent-[var(--primary)]"
+              />
+              <span>Технику приносят в сервисный центр</span>
+            </label>
 
             <Select label="Техника" name="appliance" defaultValue="washer">
               {APPLIANCES.map((a) => (
@@ -166,7 +195,11 @@ export function OrdersView({
               ))}
             </Select>
 
-            <Field label="Когда выехать" name="scheduled_at" type="datetime-local" />
+            <Field
+              label={atServiceCenter ? "Когда принесут" : "Когда выехать"}
+              name="scheduled_at"
+              type="datetime-local"
+            />
 
             <Field label="Бренд" name="brand" placeholder="LG, Samsung, Bosch" />
             <Field label="Модель" name="model" placeholder="Необязательно" />
@@ -273,7 +306,10 @@ function OrderRow({
   const [busy, setBusy] = useState(false);
   const [masterId, setMasterId] = useState(order.master_id ?? "");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const masterName = masters.find((m) => m.id === order.master_id)?.full_name ?? null;
 
   const canCancel = order.status !== "done" && order.status !== "canceled";
 
@@ -287,6 +323,22 @@ function OrderRow({
       setMasterId(order.master_id ?? "");
       setError(result.error);
     }
+    setBusy(false);
+  }
+
+  async function onConfirmCash() {
+    setBusy(true);
+    setError(null);
+    const result = await confirmCashAction(order.id);
+    if ("error" in result && result.error) setError(result.error);
+    setBusy(false);
+  }
+
+  async function onRevertCash() {
+    setBusy(true);
+    setError(null);
+    const result = await revertCashAction(order.id);
+    if ("error" in result && result.error) setError(result.error);
     setBusy(false);
   }
 
@@ -315,30 +367,77 @@ function OrderRow({
           </span>
         )}
         <span className="text-sm text-muted">{formatWhen(order.created_at)}</span>
-        {order.total_amount != null && (
-          <span className="ml-auto">
-            <OrderMoney
-              total={order.total_amount}
-              expenses={order.expenses}
-              expensesNote={order.expenses_note}
-              paymentMethod={order.payment_method}
-              sharePercent={order.company_share_percent}
-            />
+
+        {order.status === "done" && (
+          <span
+            className={
+              "ml-auto rounded-full px-2.5 py-1 text-xs font-medium " +
+              (order.cash_confirmed_at
+                ? "bg-success/12 text-success"
+                : "bg-warning/12 text-warning")
+            }
+          >
+            {order.cash_confirmed_at ? "Деньги в кассе" : "Деньги не сданы"}
           </span>
         )}
       </div>
 
       <p className="mt-1 text-muted">
         {APPLIANCE_LABEL[order.appliance]} · {formatPhone(order.client_phone)}
-        {order.address ? ` · ${order.address}` : ""}
+        {order.at_service_center
+          ? " · Сервисный центр"
+          : order.address
+            ? ` · ${order.address}`
+            : ""}
       </p>
 
       {order.problem && <p className="mt-1 text-sm text-muted">{order.problem}</p>}
 
       {order.scheduled_at && (
         <p className="mt-1 text-sm text-muted">
-          Выезд: {formatDateTime(order.scheduled_at)}
+          {order.at_service_center ? "Приём: " : "Выезд: "}
+          {formatDateTime(order.scheduled_at)}
         </p>
+      )}
+
+      {order.total_amount != null && (
+        <div className="mt-3">
+          <OrderMoney
+            total={order.total_amount}
+            expenses={order.expenses}
+            paymentMethod={order.payment_method}
+            sharePercent={order.company_share_percent}
+          />
+        </div>
+      )}
+
+      {order.status === "done" && (
+        <div className="mt-2">
+          {order.cash_confirmed_at ? (
+            <span className="inline-flex items-center gap-1.5 text-sm text-muted">
+              <Check size={15} aria-hidden className="text-success" />
+              Оплата подтверждена {formatDateTime(order.cash_confirmed_at)}
+              <button
+                onClick={onRevertCash}
+                disabled={busy}
+                className="underline underline-offset-4"
+              >
+                отменить
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={onConfirmCash}
+              disabled={busy}
+              className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-card)]
+                         bg-primary px-4 text-sm font-medium text-primaryink
+                         disabled:opacity-60"
+            >
+              <BanknoteArrowUp size={16} aria-hidden />
+              Подтвердить оплату
+            </button>
+          )}
+        </div>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -372,6 +471,18 @@ function OrderRow({
           </DocLink>
         </span>
 
+        <OrderDetails order={order} masterName={masterName} />
+
+        <button
+          onClick={() => setEditing((v) => !v)}
+          aria-expanded={editing}
+          className="inline-flex items-center gap-1 text-sm text-muted
+                     underline underline-offset-4 hover:text-text"
+        >
+          <Pencil size={14} aria-hidden />
+          Изменить
+        </button>
+
         {canCancel && (
           <div className="ml-auto">
             {confirmCancel ? (
@@ -402,6 +513,10 @@ function OrderRow({
           </div>
         )}
       </div>
+
+      {editing && (
+        <OrderEditForm order={order} onDone={() => setEditing(false)} />
+      )}
 
       {error && (
         <p role="alert" className="mt-2 text-sm text-danger">

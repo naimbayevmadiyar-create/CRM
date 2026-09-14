@@ -52,10 +52,12 @@ export default async function ActPage({
           <Fill value={order.contract_date} width="30mm" /> г.
         </p>
 
+        {/* ФИО частного заказчика оставляем пустой линией: в заявке лежит
+            только имя, а в акте нужна полная подпись — впишет от руки. */}
         <p style={{ marginTop: "3mm" }}>
           Заказчик:{" "}
           <Fill
-            value={order.is_legal_entity ? order.org_name : order.client_name}
+            value={order.is_legal_entity ? order.org_name : null}
             width="70mm"
           />
           {"  "}
@@ -113,7 +115,7 @@ export default async function ActPage({
           <p>
             Оборудование передал:{" "}
             <Fill
-              value={order.is_legal_entity ? order.org_name : order.client_name}
+              value={order.is_legal_entity ? order.org_name : null}
               width="70mm"
             />{" "}
             Подпись <Fill width="30mm" />

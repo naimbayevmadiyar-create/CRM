@@ -19,8 +19,10 @@ export type DraftItem = {
  * «Ремонт». Но если мастер отметил работы, сумма складывается сама и спорить
  * с клиентом становится не о чем.
  *
- * Выбор из прейскуранта, а не ввод текста: на телефоне тыкать быстрее,
- * чем печатать, и названия работ остаются одинаковыми во всех документах.
+ * Цены в списке намеренно не показываем и не подставляем: продажная цена
+ * решается на месте — один и тот же ТЭН уходит и за 23 500, и за другие
+ * деньги. Список нужен только чтобы не набирать название руками; чего в нём
+ * нет — вписывается своей строкой.
  */
 export function ItemsEditor({
   items,
@@ -31,12 +33,12 @@ export function ItemsEditor({
 }) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState("");
+  const [custom, setCustom] = useState("");
 
-  function add() {
-    const found = PRICE_LIST.find((item) => item.title === picked);
-    if (!found) return;
-    onChange([...items, { title: found.title, price: found.price, quantity: 1 }]);
-    setPicked("");
+  function addTitle(title: string) {
+    const clean = title.trim();
+    if (!clean) return;
+    onChange([...items, { title: clean, price: 0, quantity: 1 }]);
   }
 
   function patch(index: number, change: Partial<DraftItem>) {
@@ -64,7 +66,7 @@ export function ItemsEditor({
 
   return (
     <div className="rounded-[var(--radius-card)] border border-border p-3">
-      <p className="mb-2 text-sm text-muted">Что делали</p>
+      <p className="mb-2 text-sm text-muted">Что делали и почём</p>
 
       {items.length > 0 && (
         <ul className="mb-3 space-y-2">
@@ -78,6 +80,7 @@ export function ItemsEditor({
                   patch(index, { price: Number(e.target.value.replace(/\D/g, "")) || 0 })
                 }
                 inputMode="numeric"
+                placeholder="цена"
                 aria-label={`Цена: ${item.title}`}
                 className="h-10 w-24 rounded-[var(--radius-card)] border border-border
                            bg-surface px-2 text-right outline-none focus:border-primary"
@@ -113,27 +116,49 @@ export function ItemsEditor({
       <div className="flex gap-2">
         <select
           value={picked}
-          onChange={(e) => setPicked(e.target.value)}
-          aria-label="Выбрать работу из прейскуранта"
+          onChange={(e) => {
+            addTitle(e.target.value);
+            setPicked("");
+          }}
+          aria-label="Выбрать работу из списка"
           className="h-11 min-w-0 flex-1 rounded-[var(--radius-card)] border border-border
                      bg-surface px-2 outline-none focus:border-primary"
         >
-          <option value="">Выбрать работу…</option>
+          <option value="">Выбрать из списка…</option>
           {PRICE_GROUPS.map((group) => (
             <optgroup key={group} label={group}>
               {PRICE_LIST.filter((item) => item.group === group).map((item) => (
                 <option key={item.title} value={item.title}>
-                  {item.title} · {formatTenge(item.price)}
+                  {item.title}
                 </option>
               ))}
             </optgroup>
           ))}
         </select>
+      </div>
 
+      <div className="mt-2 flex gap-2">
+        <input
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            addTitle(custom);
+            setCustom("");
+          }}
+          placeholder="Своя работа: чистка, герметизация бункера…"
+          aria-label="Вписать свою работу"
+          className="h-11 min-w-0 flex-1 rounded-[var(--radius-card)] border border-border
+                     bg-surface px-3 outline-none focus:border-primary"
+        />
         <button
           type="button"
-          onClick={add}
-          disabled={!picked}
+          onClick={() => {
+            addTitle(custom);
+            setCustom("");
+          }}
+          disabled={!custom.trim()}
           className="h-11 shrink-0 rounded-[var(--radius-card)] bg-surface2 px-4
                      font-medium disabled:opacity-50"
         >

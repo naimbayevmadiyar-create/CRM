@@ -34,6 +34,11 @@ export type ApplianceKind =
   | "fridge"
   | "oven"
   | "hood"
+  | "microwave"
+  | "vacuum"
+  | "iron"
+  | "hair_dryer"
+  | "ice_maker"
   | "industrial"
   | "other";
 
@@ -44,6 +49,11 @@ type ProfileRow = {
   role: UserRole;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
+  password_hash: string | null;
+  password_version: number;
+  share_percent: number | null;
+  signature_image: string | null;
 };
 
 type LeadRow = {
@@ -91,10 +101,13 @@ type OrderRow = {
   org_name: string | null;
   org_bin: string | null;
   org_address: string | null;
+  at_service_center: boolean;
   source: LeadSource;
   lead_id: string | null;
   cancel_reason: string | null;
   created_by: string | null;
+  cash_confirmed_at: string | null;
+  cash_confirmed_by: string | null;
 };
 
 type OrderEventRow = {
@@ -123,7 +136,45 @@ type AppSettingsRow = {
   diagnostics_price: number;
   warranty_months: number;
   repair_term_days: number;
+  bank_kbe: string;
+  payment_purpose_code: string;
+  contract_prefix: string;
+  tax_percent: number;
+  logo_image: string | null;
+  stamp_image: string | null;
+  kaspi_qr_image: string | null;
   updated_at: string;
+};
+
+type InvoiceRow = {
+  id: string;
+  number: number;
+  created_at: string;
+  updated_at: string;
+  order_id: string | null;
+  buyer_name: string | null;
+  buyer_bin: string | null;
+  buyer_address: string | null;
+  contract_number: string | null;
+  contract_date: string | null;
+  paid_marked_at: string | null;
+  paid_marked_by: string | null;
+  payment_method: PaymentMethod;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+  canceled_at: string | null;
+  note: string | null;
+  created_by: string | null;
+};
+
+type InvoiceItemRow = {
+  id: string;
+  invoice_id: string;
+  position: number;
+  title: string;
+  price: number;
+  quantity: number;
+  unit: string;
 };
 
 type OrderItemRow = {
@@ -151,7 +202,7 @@ export type Database = {
     Tables: {
       profiles: {
         Row: ProfileRow;
-        Insert: Optional<ProfileRow, "id" | "role" | "is_active" | "created_at" | "phone">;
+        Insert: Optional<ProfileRow, Exclude<keyof ProfileRow, "full_name">>;
         Update: Partial<ProfileRow>;
         Relationships: [];
       };
@@ -183,6 +234,18 @@ export type Database = {
         Row: OrderItemRow;
         Insert: Optional<OrderItemRow, Exclude<keyof OrderItemRow, "order_id" | "title">>;
         Update: Partial<OrderItemRow>;
+        Relationships: [];
+      };
+      invoices: {
+        Row: InvoiceRow;
+        Insert: Optional<InvoiceRow, keyof InvoiceRow>;
+        Update: Partial<InvoiceRow>;
+        Relationships: [];
+      };
+      invoice_items: {
+        Row: InvoiceItemRow;
+        Insert: Optional<InvoiceItemRow, Exclude<keyof InvoiceItemRow, "invoice_id" | "title">>;
+        Update: Partial<InvoiceItemRow>;
         Relationships: [];
       };
       auth_attempts: {

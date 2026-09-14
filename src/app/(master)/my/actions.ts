@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { requireMaster } from "@/lib/auth";
-import { advanceOrderStatus, closeOrderWithReport, getOrder } from "@/lib/db/orders";
+import {
+  advanceOrderStatus,
+  closeOrderWithReport,
+  getOrder,
+  updateClientDetails,
+} from "@/lib/db/orders";
+import { getProfile } from "@/lib/db/profiles";
+import { getDefaultSharePercent } from "@/lib/db/settings";
 import { nextForMaster } from "@/lib/status";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/settlement";
 import { replaceOrderItems } from "@/lib/db/orderItems";
@@ -34,7 +41,6 @@ export type FinishReport = {
   expenses: number;
   expensesNote?: string;
   paymentMethod: string;
-  sharePercent: number;
   items?: { title: string; price: number; quantity: number }[];
 };
 
@@ -57,6 +63,14 @@ export async function finish(
 
   if (!paymentMethod) return { error: "Отметьте, как заплатили" };
 
+  // Процент берём с профиля мастера, а не из формы: у кого-то 50/50,
+  // у кого-то 60/40, и менять его вправе только директор.
+  const [profile, fallback] = await Promise.all([
+    getProfile(session.masterId),
+    getDefaultSharePercent(),
+  ]);
+  const sharePercent = profile?.share_percent ?? fallback;
+
   try {
     await closeOrderWithReport(
       orderId,
@@ -65,7 +79,7 @@ export async function finish(
         expenses: report.expenses,
         expensesNote: report.expensesNote,
         paymentMethod,
-        sharePercent: report.sharePercent,
+        sharePercent,
       },
       actor,
     );
@@ -73,6 +87,33 @@ export async function finish(
       await replaceOrderItems(orderId, report.items);
     }
     await advanceOrderStatus(orderId, "done", actor);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось сохранить" };
+  }
+
+  revalidatePath("/my");
+  revalidatePath("/orders");
+  return { ok: true };
+}
+
+/**
+ * Правка данных клиента с телефона мастера.
+ *
+ * На месте выясняется и настоящее имя, и точный адрес — диспетчер записывал
+ * со слов по телефону. Без этого в акте остаётся «Клиент» и «офис».
+ */
+export async function saveClient(
+  orderId: string,
+  patch: { clientName: string; address: string },
+): Promise<ActionResult> {
+  const session = await requireMaster();
+
+  try {
+    await updateClientDetails(
+      orderId,
+      { client_name: patch.clientName, address: patch.address },
+      { id: session.masterId, role: "master" },
+    );
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Не удалось сохранить" };
   }

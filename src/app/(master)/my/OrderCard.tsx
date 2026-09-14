@@ -1,13 +1,14 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { Clock, MapPin, MessageCircle, Phone } from "lucide-react";
+import Link from "next/link";
+import { Check, Clock, FileText, MapPin, MessageCircle, Pencil, Phone, Printer } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatDateTime, formatPhone, phoneDigits } from "@/lib/format";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { masterButtonLabel, nextForMaster, STATUS_LABEL, type Status } from "@/lib/status";
 import type { ApplianceKind } from "@/types/db";
-import { advance, finish, type FinishReport } from "./actions";
+import { advance, finish, saveClient, type FinishReport } from "./actions";
 import { FinishForm } from "./FinishForm";
 
 export type MasterOrder = {
@@ -24,15 +25,21 @@ export type MasterOrder = {
 
 export function OrderCard({
   order,
-  defaultSharePercent,
+  sharePercent,
 }: {
   order: MasterOrder;
-  defaultSharePercent: number;
+  sharePercent: number;
 }) {
   // оптимистичный этап: подпись кнопки меняется сразу, не дожидаясь сервера
   const [status, setStatus] = useOptimistic(order.status);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // данные клиента мастер уточняет на месте: по телефону их записали со слов
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(order.client_name ?? "");
+  const [address, setAddress] = useState(order.address ?? "");
+  const [saved, setSaved] = useState(false);
 
   const label = masterButtonLabel(status);
   const askReport = nextForMaster(status) === "done";
@@ -57,11 +64,24 @@ export function OrderCard({
     });
   }
 
+  function onSaveClient() {
+    setError(null);
+    setSaved(false);
+    startTransition(async () => {
+      const result = await saveClient(order.id, { clientName: name, address });
+      if (result.error) setError(result.error);
+      else {
+        setSaved(true);
+        setEditing(false);
+      }
+    });
+  }
+
   return (
     <article className="rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-[var(--shadow-card)]">
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <h2 className="text-xl font-semibold">
-          {order.client_name || "Клиент"}{" "}
+          {name || "Клиент"}{" "}
           <span className="font-normal text-muted">№{order.number}</span>
         </h2>
         <span className="shrink-0 text-sm text-muted" aria-live="polite">
@@ -78,8 +98,47 @@ export function OrderCard({
         </p>
       )}
 
-      {order.address && <p className="mt-3 text-lg">{order.address}</p>}
+      {address && <p className="mt-3 text-lg">{address}</p>}
       {order.problem && <p className="mt-1 text-muted">{order.problem}</p>}
+
+      {editing ? (
+        <div className="mt-3 space-y-2 rounded-[var(--radius-card)] border border-border p-3">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="ФИО клиента"
+            aria-label="ФИО клиента"
+            className="h-12 w-full rounded-[var(--radius-card)] border border-border
+                       bg-surface px-3 outline-none focus:border-primary"
+          />
+          <input
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Адрес"
+            aria-label="Адрес клиента"
+            className="h-12 w-full rounded-[var(--radius-card)] border border-border
+                       bg-surface px-3 outline-none focus:border-primary"
+          />
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={onSaveClient} disabled={pending}>
+              Сохранить
+            </Button>
+            <Button variant="ghost" onClick={() => setEditing(false)}>
+              Отмена
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary
+                     underline underline-offset-4"
+        >
+          {saved ? <Check size={14} aria-hidden /> : <Pencil size={14} aria-hidden />}
+          {saved ? "Данные сохранены" : "Уточнить ФИО и адрес"}
+        </button>
+      )}
 
       <div className="mt-4 flex gap-2">
         <a
@@ -116,9 +175,30 @@ export function OrderCard({
         )}
       </div>
 
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href={`/print/act/${order.id}`}
+          target="_blank"
+          className="inline-flex h-10 items-center gap-1.5 rounded-[var(--radius-card)]
+                     bg-surface2 px-3 text-sm font-medium text-muted"
+        >
+          <FileText size={14} aria-hidden />
+          Акт
+        </Link>
+        <Link
+          href={`/print/workorder/${order.id}`}
+          target="_blank"
+          className="inline-flex h-10 items-center gap-1.5 rounded-[var(--radius-card)]
+                     bg-surface2 px-3 text-sm font-medium text-muted"
+        >
+          <Printer size={14} aria-hidden />
+          Заказ-наряд
+        </Link>
+      </div>
+
       {askReport ? (
         <FinishForm
-          defaultSharePercent={defaultSharePercent}
+          sharePercent={sharePercent}
           pending={pending}
           onSubmit={onFinish}
         />

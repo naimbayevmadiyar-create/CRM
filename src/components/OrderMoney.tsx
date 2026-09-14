@@ -1,32 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { cn, formatTenge } from "@/lib/format";
+import { formatTenge } from "@/lib/format";
 import { calcSettlement, PAYMENT_LABEL, type PaymentMethod } from "@/lib/settlement";
 
 /**
- * Раскладка по деньгам закрытого заказа.
+ * Деньги закрытого заказа в четыре клетки.
  *
- * Свёрнута до одной строки с общей суммой: в списке из тридцати заявок
- * подробности мешают. Раскрывается по нажатию — тогда видно, на какие
- * запчасти ушли деньги компании и сколько мастер внёс в кассу.
+ * Раньше сумма пряталась за стрелочкой, и директор не видел главного, пока
+ * не ткнёт в каждую заявку. Теперь всё на виду сразу: сколько согласовали,
+ * сколько ушло на запчасти, что осталось чистыми и сколько приходит в кассу.
  */
 export function OrderMoney({
   total,
   expenses,
-  expensesNote,
   paymentMethod,
   sharePercent,
 }: {
   total: number;
   expenses: number;
-  expensesNote: string | null;
   paymentMethod: PaymentMethod | null;
   sharePercent: number;
 }) {
-  const [open, setOpen] = useState(false);
-
   const settlement = calcSettlement({
     total,
     expenses,
@@ -34,78 +28,54 @@ export function OrderMoney({
     paymentMethod: paymentMethod ?? "cash",
   });
 
-  const hasDetails = expenses > 0 || paymentMethod !== null;
-
-  if (!hasDetails) {
-    return <span className="font-medium">{formatTenge(total)}</span>;
-  }
+  const cashLabel =
+    paymentMethod == null
+      ? "В кассу"
+      : settlement.direction === "master_owes"
+        ? `В кассу · ${PAYMENT_LABEL[paymentMethod].toLowerCase()}`
+        : `Мастеру · ${PAYMENT_LABEL[paymentMethod].toLowerCase()}`;
 
   return (
-    <div className="w-full">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1.5 font-medium"
-      >
-        {formatTenge(total)}
-        <ChevronDown
-          size={15}
-          aria-hidden
-          className={cn("text-muted transition-transform", open && "rotate-180")}
-        />
-      </button>
-
-      {open && (
-        <dl className="mt-2 rounded-[var(--radius-card)] bg-surface2 p-3 text-sm">
-          <Row label="Согласовано" value={formatTenge(total)} />
-
-          {expenses > 0 && (
-            <Row
-              label={expensesNote ? `Запчасти · ${expensesNote}` : "Запчасти"}
-              value={`− ${formatTenge(expenses)}`}
-            />
-          )}
-
-          <Row label="Чистыми" value={formatTenge(settlement.net)} />
-          <Row label="Мастеру" value={formatTenge(settlement.masterCut)} />
-          <Row
-            label={`Прибыль компании · ${settlement.sharePercent}%`}
-            value={formatTenge(settlement.companyCut)}
-            strong
-          />
-
-          {paymentMethod && (
-            <div className="mt-2 border-t border-border pt-2">
-              <Row
-                label={
-                  settlement.direction === "master_owes"
-                    ? `${PAYMENT_LABEL[paymentMethod]} · мастер вносит`
-                    : `${PAYMENT_LABEL[paymentMethod]} · выплатить мастеру`
-                }
-                value={formatTenge(settlement.amount)}
-              />
-            </div>
-          )}
-        </dl>
-      )}
-    </div>
+    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <Cell label="Согласовано" value={formatTenge(total)} />
+      <Cell
+        label="Расход"
+        value={expenses > 0 ? `− ${formatTenge(expenses)}` : "—"}
+        muted={expenses === 0}
+      />
+      <Cell label="Чистыми" value={formatTenge(settlement.net)} />
+      <Cell label={cashLabel} value={formatTenge(settlement.amount)} strong />
+    </dl>
   );
 }
 
-function Row({
+function Cell({
   label,
   value,
   strong,
+  muted,
 }: {
   label: string;
   value: string;
   strong?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-0.5">
-      <dt className="text-muted">{label}</dt>
-      <dd className={strong ? "font-semibold" : ""}>{value}</dd>
+    <div
+      className={
+        "rounded-[var(--radius-card)] px-3 py-2 " +
+        (strong ? "bg-primary/8" : "bg-surface2")
+      }
+    >
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd
+        className={
+          "mt-0.5 whitespace-nowrap text-[15px] " +
+          (strong ? "font-semibold text-primary" : muted ? "text-muted" : "font-medium")
+        }
+      >
+        {value}
+      </dd>
     </div>
   );
 }
