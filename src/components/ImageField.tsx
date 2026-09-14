@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { Upload, X } from "lucide-react";
 
-const MAX_SIDE = 700;
+/*
+  Картинка едет в базу строкой и читается на каждой печати, поэтому её вес
+  важнее её размера. Пробуем от крупного к мелкому: печать и логотип остаются
+  разборчивыми и в 360 точек, а человек не должен получать отказ и идти
+  пережимать файл руками.
+*/
+const SIDES = [700, 520, 400, 300];
 const MAX_BYTES = 400_000;
 
 /**
@@ -36,12 +42,14 @@ export function ImageField({
     setError(null);
 
     try {
-      const shrunk = await shrink(file);
-      if (shrunk.length > MAX_BYTES) {
-        setError("Картинка слишком тяжёлая — возьмите файл поменьше");
-        return;
+      for (const side of SIDES) {
+        const shrunk = await shrink(file, side);
+        if (shrunk.length <= MAX_BYTES) {
+          setImage(shrunk);
+          return;
+        }
       }
-      setImage(shrunk);
+      setError("Картинка слишком тяжёлая — попробуйте файл поменьше");
     } catch {
       setError("Не удалось прочитать файл");
     }
@@ -106,8 +114,8 @@ export function ImageField({
   );
 }
 
-/** Уменьшает картинку до разумного размера — в документ больше и не нужно. */
-function shrink(file: File): Promise<string> {
+/** Уменьшает картинку до заданной стороны — в документ больше и не нужно. */
+function shrink(file: File, maxSide: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error("read"));
@@ -115,7 +123,7 @@ function shrink(file: File): Promise<string> {
       const source = new Image();
       source.onerror = () => reject(new Error("decode"));
       source.onload = () => {
-        const scale = Math.min(1, MAX_SIDE / Math.max(source.width, source.height));
+        const scale = Math.min(1, maxSide / Math.max(source.width, source.height));
         const canvas = document.createElement("canvas");
         canvas.width = Math.round(source.width * scale);
         canvas.height = Math.round(source.height * scale);

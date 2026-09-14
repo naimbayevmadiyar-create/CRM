@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getAnalytics } from "@/lib/db/analytics";
-import { getCompany } from "@/lib/db/company";
+import { getTaxPercent } from "@/lib/db/settings";
 import { AnalyticsView } from "./AnalyticsView";
 
 export const metadata: Metadata = { title: "Аналитика" };
@@ -20,10 +20,10 @@ export default async function AnalyticsPage({
   const to = new Date();
   const from = new Date(to.getTime() - span * 24 * 60 * 60 * 1000);
 
-  const [data, company] = await Promise.all([
+  const [data, taxPercent] = await Promise.all([
     getAnalytics(from.toISOString(), to.toISOString()),
-    getCompany(),
+    getTaxPercent(),
   ]);
 
-  return <AnalyticsView data={data} days={span} taxPercent={company.tax_percent} />;
+  return <AnalyticsView data={data} days={span} taxPercent={taxPercent} />;
 }

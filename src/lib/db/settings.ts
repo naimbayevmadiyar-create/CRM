@@ -22,3 +22,20 @@ export async function setDefaultSharePercent(percent: number): Promise<void> {
 
   if (error) throw error;
 }
+
+/**
+ * Ставка налога.
+ *
+ * Отдельным запросом, а не через getCompany: тот тянет ещё и логотип
+ * с печатью — сотни килобайт, которые аналитике ни к чему.
+ */
+export async function getTaxPercent(): Promise<number> {
+  const { data, error } = await db()
+    .from("app_settings")
+    .select("tax_percent")
+    .eq("id", true)
+    .single();
+
+  if (error) throw error;
+  return Number(data.tax_percent);
+}
