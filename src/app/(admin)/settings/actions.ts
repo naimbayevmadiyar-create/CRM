@@ -70,7 +70,6 @@ export async function saveSettings(
       tax_percent: tax,
       logo_image: image(formData, "logo_image"),
       stamp_image: image(formData, "stamp_image"),
-      kaspi_qr_image: image(formData, "kaspi_qr_image"),
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Не удалось сохранить" };

@@ -222,39 +222,6 @@
   opacity: 0.88;
 }
 
-/* Подвал счёта: слева подпись с печатью, справа QR для оплаты */
-.doc-pay {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8mm;
-  margin-top: 6mm;
-  font-size: 10pt;
-}
-
-/*
-  Kaspi QR печатается крупно и с рамкой: телефон должен ловить его с листа
-  с первого раза. Мельче 34 мм узор уже не читается, особенно если человек
-  загрузил снимок экрана с полями вокруг кода.
-*/
-.doc-qr {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.5mm;
-  padding: 2mm;
-  border: 1px solid var(--line);
-  text-align: center;
-  font-size: 8.5pt;
-  line-height: 1.2;
-}
-
-.doc-qr img {
-  width: 34mm;
-  height: 34mm;
-  object-fit: contain;
-}
-
 /* Панель управления печатью — на бумагу не попадает */
 .print-bar {
   position: sticky;

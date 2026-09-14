@@ -120,13 +120,6 @@ export function SettingsView({
           height="h-28"
           hint="Отпечаток на белом листе, сфотографированный или отсканированный."
         />
-        <ImageField
-          label="Kaspi QR"
-          name="kaspi_qr_image"
-          value={company.kaspi_qr_image}
-          height="h-28"
-          hint="Скриншот QR из Kaspi Business — клиент оплатит счёт с телефона."
-        />
       </Section>
 
       <Section title="Условия работы">

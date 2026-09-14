@@ -29,10 +29,9 @@ export type Company = {
   tax_percent: number;
   logo_image: string | null;
   stamp_image: string | null;
-  kaspi_qr_image: string | null;
 };
 
-const COLUMNS = "company_name, company_legal_name, company_bin, company_address, company_phone, bank_name, bank_bic, bank_account, diagnostics_price, warranty_months, repair_term_days, default_company_share_percent, bank_kbe, payment_purpose_code, contract_prefix, tax_percent, logo_image, stamp_image, kaspi_qr_image";
+const COLUMNS = "company_name, company_legal_name, company_bin, company_address, company_phone, bank_name, bank_bic, bank_account, diagnostics_price, warranty_months, repair_term_days, default_company_share_percent, bank_kbe, payment_purpose_code, contract_prefix, tax_percent, logo_image, stamp_image";
 
 export async function getCompany(): Promise<Company> {
   const { data, error } = await db()
