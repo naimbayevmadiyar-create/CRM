@@ -51,6 +51,16 @@ export function AnalyticsView({
     orders: row.orders,
   }));
 
+  // Средняя доля расхода по всему сервису — от неё и меряем каждого мастера
+  const averageExpenseShare = data.turnover > 0 ? data.expenses / data.turnover : 0;
+
+  /**
+   * Подсвечиваем, когда доля расхода в полтора раза выше средней и выше 10 %.
+   * Нижний порог нужен, чтобы при почти нулевом среднем не краснело всё подряд.
+   */
+  const isSuspicious = (share: number, expenses: number) =>
+    expenses > 0 && share > 0.1 && share > averageExpenseShare * 1.5;
+
   const median = data.median_minutes_to_departure;
   const keepsPromise = median != null && median <= PROMISED_MINUTES;
 
@@ -203,32 +213,59 @@ export function AnalyticsView({
 
           {data.by_master.length > 0 && (
             <section>
-              <h2 className="mb-3 text-lg font-semibold">Мастера</h2>
+              <h2 className="mb-1 text-lg font-semibold">Мастера</h2>
+              {/* Расход в деньгах сам по себе мало что говорит: у кого больше
+                  заказов, у того и запчастей больше. Сравнивать честно долю
+                  расхода от оборота — она и выдаёт того, кто завышает. */}
+              <p className="mb-3 text-sm text-muted">
+                Средняя доля расхода по сервису — {formatPercent(averageExpenseShare)}.
+                Заметно выше среднего подсвечено: стоит посмотреть, на что уходят деньги.
+              </p>
               <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border bg-surface">
-                <table className="w-full min-w-[620px] text-sm">
+                <table className="w-full min-w-[820px] text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-muted">
                       <th className="px-4 py-3 font-medium">Мастер</th>
                       <th className="px-4 py-3 font-medium">Заявок</th>
                       <th className="px-4 py-3 font-medium">Оборот</th>
+                      <th className="px-4 py-3 font-medium">Расход</th>
+                      <th className="px-4 py-3 font-medium">Доля расхода</th>
                       <th className="px-4 py-3 font-medium">Чистыми</th>
-                      <th className="px-4 py-3 font-medium">В кассу</th>
+                      <th className="px-4 py-3 font-medium">Прибыль компании</th>
                       <th className="px-4 py-3 font-medium">До выезда</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {data.by_master.map((row) => (
-                      <tr key={row.master} className="border-b border-border last:border-0">
-                        <td className="px-4 py-3 font-medium">{row.master}</td>
-                        <td className="px-4 py-3">{row.orders}</td>
-                        <td className="px-4 py-3">{formatTenge(row.turnover)}</td>
-                        <td className="px-4 py-3">{formatTenge(row.net)}</td>
-                        <td className="px-4 py-3 font-medium">{formatTenge(row.company_cut)}</td>
-                        <td className="px-4 py-3 text-muted">
-                          {row.avg_minutes == null ? "—" : formatDuration(row.avg_minutes)}
-                        </td>
-                      </tr>
-                    ))}
+                    {data.by_master.map((row) => {
+                      // расход не хранится отдельно: чистые — это оборот минус запчасти
+                      const expenses = Math.max(0, row.turnover - row.net);
+                      const share = row.turnover > 0 ? expenses / row.turnover : 0;
+                      const suspicious = isSuspicious(share, expenses);
+
+                      return (
+                        <tr key={row.master} className="border-b border-border last:border-0">
+                          <td className="px-4 py-3 font-medium">{row.master}</td>
+                          <td className="px-4 py-3">{row.orders}</td>
+                          <td className="px-4 py-3">{formatTenge(row.turnover)}</td>
+                          <td className="px-4 py-3">
+                            {expenses > 0 ? formatTenge(expenses) : "—"}
+                          </td>
+                          <td
+                            className={
+                              "px-4 py-3 " + (suspicious ? "font-semibold text-warning" : "")
+                            }
+                            title={suspicious ? "Заметно выше среднего по сервису" : undefined}
+                          >
+                            {row.turnover > 0 ? formatPercent(share) : "—"}
+                          </td>
+                          <td className="px-4 py-3">{formatTenge(row.net)}</td>
+                          <td className="px-4 py-3 font-medium">{formatTenge(row.company_cut)}</td>
+                          <td className="px-4 py-3 text-muted">
+                            {row.avg_minutes == null ? "—" : formatDuration(row.avg_minutes)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -288,4 +325,8 @@ function Tile({
       {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
     </div>
   );
+}
+
+function formatPercent(share: number): string {
+  return `${Math.round(share * 100)} %`;
 }

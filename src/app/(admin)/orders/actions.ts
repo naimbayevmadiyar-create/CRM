@@ -10,6 +10,7 @@ import {
   createOrder,
   getOrder,
   listOrderHistory,
+  reopenOrder,
   revertCash,
   updateOrderDetails,
   type OrderEvent,
@@ -211,4 +212,21 @@ export async function updateOrderAction(
 
   revalidatePath("/orders");
   return { ok: true };
+}
+
+/**
+ * Вернуть отчёт мастеру на исправление.
+ * Директору можно всегда — даже когда деньги уже приняты.
+ */
+export async function reopenOrderAction(orderId: string) {
+  await requireAdmin();
+  try {
+    await reopenOrder(orderId, { role: "admin" });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось вернуть заявку" };
+  }
+  revalidatePath("/orders");
+  revalidatePath("/my");
+  revalidatePath("/analytics");
+  return { ok: true as const };
 }

@@ -8,6 +8,7 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { formatDateTime, formatTenge } from "@/lib/format";
 import { calcSettlement, PAYMENT_LABEL } from "@/lib/settlement";
+import { ReopenButton } from "./ReopenButton";
 
 export const metadata: Metadata = { title: "Закрытые заявки" };
 
@@ -99,6 +100,16 @@ export default async function ClosedOrdersPage() {
                       value={order.cash_confirmed_at ? "приняты" : "ещё не приняты"}
                     />
                   </dl>
+                )}
+
+                {/* пока деньги не приняты, мастер может сам поправить свой отчёт */}
+                {order.status === "done" && !order.cash_confirmed_at && (
+                  <ReopenButton orderId={order.id} />
+                )}
+                {order.status === "done" && order.cash_confirmed_at && (
+                  <p className="mt-3 text-xs text-muted">
+                    Деньги приняты — исправить отчёт теперь может только директор.
+                  </p>
                 )}
 
                 <div className="mt-3 flex flex-wrap gap-2">

@@ -2,18 +2,29 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { BanknoteArrowUp, Check, FileText, Pencil, Printer, Receipt, Search, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BanknoteArrowUp,
+  Check,
+  FileText,
+  Pencil,
+  Printer,
+  Receipt,
+  RotateCcw,
+  Search,
+  X,
+} from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { OrderMoney } from "@/components/OrderMoney";
 import { LeadStrip } from "@/components/LeadStrip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Field, Select, TextArea } from "@/components/ui/Field";
-import { formatDateTime, formatPhone, formatTenge, formatWhen } from "@/lib/format";
+import { cn, formatDateTime, formatPhone, formatTenge, formatWhen } from "@/lib/format";
 import { APPLIANCES, APPLIANCE_LABEL } from "@/lib/appliance";
 import { SOURCE_LABEL } from "@/lib/source";
 import { STATUS_LABEL, STATUSES } from "@/lib/status";
-import type { Order } from "@/lib/db/orders";
+import type { Order, StageSummary } from "@/lib/db/orders";
 import type { Lead } from "@/lib/db/leads";
 import type { Profile } from "@/lib/db/profiles";
 import {
@@ -21,6 +32,7 @@ import {
   cancelAction,
   confirmCashAction,
   createOrderAction,
+  reopenOrderAction,
   revertCashAction,
   type OrderFormState,
 } from "./actions";
@@ -55,6 +67,7 @@ export function OrdersView({
   status,
   repeatPhones,
   pendingCash,
+  stages,
 }: {
   orders: Order[];
   masters: Profile[];
@@ -65,6 +78,8 @@ export function OrdersView({
   repeatPhones: string[];
   /** Кто ещё не сдал наличные по закрытым заявкам. */
   pendingCash: { name: string; amount: number; orders: number }[];
+  /** Сколько заявок на каждом этапе — независимо от фильтра на экране. */
+  stages: StageSummary;
 }) {
   const repeat = new Set(repeatPhones);
   const [state, action, pending] = useActionState(createOrderAction, INITIAL);
@@ -156,6 +171,8 @@ export function OrdersView({
           </Link>
         )}
       </form>
+
+      <StageBar stages={stages} masters={masters} current={status} />
 
       {pendingCash.length > 0 && (
         <section className="rounded-[var(--radius-card)] border border-warning/40 bg-warning/5 p-4">
@@ -356,6 +373,7 @@ function OrderRow({
   const [masterId, setMasterId] = useState(order.master_id ?? "");
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirmReopen, setConfirmReopen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const masterName = masters.find((m) => m.id === order.master_id)?.full_name ?? null;
@@ -388,6 +406,15 @@ function OrderRow({
     const result = await confirmCashAction(order.id);
     if ("error" in result && result.error) setError(result.error);
     setBusy(false);
+  }
+
+  async function onReopen() {
+    setBusy(true);
+    setError(null);
+    const result = await reopenOrderAction(order.id);
+    if ("error" in result && result.error) setError(result.error);
+    setBusy(false);
+    setConfirmReopen(false);
   }
 
   async function onRevertCash() {
@@ -554,6 +581,43 @@ function OrderRow({
           Изменить
         </button>
 
+        {/* Директор возвращает отчёт мастеру в любой момент — даже когда деньги
+            уже приняты. Приём денег при этом сбрасывается: после исправления
+            суммы другие, и принимать их надо заново. */}
+        {order.status === "done" && (
+          <div className="ml-auto">
+            {confirmReopen ? (
+              <span className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted">
+                  Вернуть мастеру на исправление?
+                  {order.cash_confirmed_at && " Приём денег сбросится."}
+                </span>
+                <button
+                  onClick={onReopen}
+                  disabled={busy}
+                  className="font-medium text-primary underline underline-offset-4"
+                >
+                  Да
+                </button>
+                <button
+                  onClick={() => setConfirmReopen(false)}
+                  className="text-muted underline underline-offset-4"
+                >
+                  Нет
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmReopen(true)}
+                className="inline-flex items-center gap-1 text-sm text-muted underline underline-offset-4"
+              >
+                <RotateCcw size={14} aria-hidden />
+                Вернуть на исправление
+              </button>
+            )}
+          </div>
+        )}
+
         {canCancel && (
           <div className="ml-auto">
             {confirmCancel ? (
@@ -620,5 +684,101 @@ function DocLink({
       {icon}
       {children}
     </Link>
+  );
+}
+
+const STAGES: { key: keyof StageSummary["counts"]; label: string; filter: string }[] = [
+  { key: "new", label: "Новые", filter: "new" },
+  { key: "assigned", label: "Назначены", filter: "assigned" },
+  { key: "on_the_way", label: "В пути", filter: "on_the_way" },
+  { key: "in_progress", label: "В работе", filter: "in_progress" },
+  { key: "waiting_cash", label: "Ждут расчёта", filter: "unpaid" },
+];
+
+/**
+ * Сколько заявок на каждом этапе — одним взглядом, с нажатием в фильтр.
+ *
+ * Ниже — то, что обычно означает ошибку: мастер числится сразу на двух
+ * выездах или у одного телефона две живые заявки, то есть её завели дважды.
+ */
+function StageBar({
+  stages,
+  masters,
+  current,
+}: {
+  stages: StageSummary;
+  masters: Profile[];
+  current: string;
+}) {
+  const nameOf = (id: string) => masters.find((m) => m.id === id)?.full_name ?? "Мастер";
+
+  return (
+    <section className="space-y-2">
+      <nav aria-label="Заявки по этапам" className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {STAGES.map((stage) => {
+          const count = stages.counts[stage.key];
+          const active = current === stage.filter;
+          return (
+            <Link
+              key={stage.key}
+              href={active ? "/orders" : `/orders?status=${stage.filter}`}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "rounded-[var(--radius-card)] border px-3 py-2.5 transition-colors",
+                active ? "border-primary bg-primary/10" : "border-border bg-surface hover:bg-surface2",
+              )}
+            >
+              <span className="block text-xs text-muted">{stage.label}</span>
+              <span
+                className={cn(
+                  "block text-2xl font-semibold",
+                  count === 0 && "text-muted",
+                  count > 0 && stage.key === "waiting_cash" && "text-warning",
+                )}
+              >
+                {count}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {stages.busyMasters.length > 0 && (
+        <p className="flex items-start gap-2 text-sm">
+          <AlertTriangle size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+          <span>
+            Сразу несколько заявок в пути или в работе:{" "}
+            {stages.busyMasters.map((row, index) => (
+              <span key={row.masterId}>
+                {index > 0 && ", "}
+                <b>{nameOf(row.masterId)}</b> ({row.count})
+              </span>
+            ))}
+            . Проверьте, не забыл ли мастер закрыть прошлую.
+          </span>
+        </p>
+      )}
+
+      {stages.duplicatePhones.length > 0 && (
+        <p className="flex items-start gap-2 text-sm">
+          <AlertTriangle size={16} aria-hidden className="mt-0.5 shrink-0 text-warning" />
+          <span>
+            Один телефон в нескольких живых заявках — возможно, завели дважды:{" "}
+            {stages.duplicatePhones.map((row, index) => (
+              <span key={row.phone}>
+                {index > 0 && ", "}
+                <Link
+                  href={`/orders?status=all&q=${row.phone.slice(-7)}`}
+                  className="font-medium underline underline-offset-4"
+                >
+                  {formatPhone(row.phone)}
+                </Link>{" "}
+                ({row.count})
+              </span>
+            ))}
+          </span>
+        </p>
+      )}
+    </section>
   );
 }

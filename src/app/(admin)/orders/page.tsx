@@ -3,6 +3,7 @@ import {
   findRepeatPhones,
   listOrdersForAdmin,
   listUnconfirmedCash,
+  stageSummary,
   type OrdersFilter,
 } from "@/lib/db/orders";
 import { calcSettlement } from "@/lib/settlement";
@@ -31,12 +32,13 @@ export default async function OrdersPage({
 }) {
   const { q, status, lead } = await searchParams;
 
-  const [orders, masters, leads, fromLead, unconfirmed] = await Promise.all([
+  const [orders, masters, leads, fromLead, unconfirmed, stages] = await Promise.all([
     listOrdersForAdmin({ query: q, status: parseStatus(status) }),
     listMasters(),
     listUnprocessedLeads(5),
     lead ? getLead(lead) : Promise.resolve(null),
     listUnconfirmedCash(),
+    stageSummary(),
   ]);
 
   // Кто ходит с невнесённой выручкой. Считаем только наличные: безнал
@@ -78,6 +80,7 @@ export default async function OrdersPage({
         status={status ?? ""}
         repeatPhones={[...repeatPhones]}
         pendingCash={pendingCash}
+        stages={stages}
       />
     </>
   );

@@ -497,3 +497,131 @@ export async function saveOrderDraft(
 
   if (error) throw error;
 }
+
+/**
+ * Откат закрытой заявки на исправление отчёта.
+ *
+ * Мастер ошибся в сумме или в расходе — заявка возвращается на «В работе»,
+ * все вписанные суммы и работы остаются, мастер правит и закрывает заново.
+ * Способ оплаты и подтверждение кассы сбрасываются: после исправления деньги
+ * пересчитываются, и подтверждать их надо заново.
+ *
+ * Правило доступа от директора: мастер может откатить свою заявку, пока
+ * деньги по ней не приняты. После приёма — только директор, в любое время.
+ */
+export async function reopenOrder(id: string, actor: Actor): Promise<void> {
+  const order = await getOrder(id);
+  if (!order) throw new Error("Заявка не найдена");
+  if (order.status !== "done") {
+    throw new Error("Вернуть на исправление можно только выполненную заявку");
+  }
+
+  if (actor.role === "master") {
+    if (order.master_id !== actor.id) throw new Error("Эта заявка назначена другому мастеру");
+    if (order.cash_confirmed_at) {
+      throw new Error(
+        "Директор уже принял деньги по этой заявке — исправить отчёт теперь может только он",
+      );
+    }
+  }
+
+  const { error } = await db()
+    .from("orders")
+    .update({
+      status: "in_progress",
+      payment_method: null,
+      cash_confirmed_at: null,
+      cash_confirmed_by: null,
+    })
+    .eq("id", id)
+    // защита от гонки: если заявку уже открыли заново, второй раз не трогаем
+    .eq("status", "done");
+
+  if (error) throw error;
+
+  // Переход в истории пишет триггер, но без автора. Подписываем его, чтобы
+  // директор видел, кто и когда вернул отчёт на исправление.
+  const { data: event } = await db()
+    .from("order_events")
+    .select("id")
+    .eq("order_id", id)
+    .eq("to_status", "in_progress")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (event) {
+    await db()
+      .from("order_events")
+      .update({
+        actor_id: actor.role === "master" ? actor.id ?? null : null,
+        actor_role: actor.role,
+        note: "Отчёт возвращён на исправление",
+      })
+      .eq("id", event.id);
+  }
+}
+
+export type StageSummary = {
+  counts: {
+    new: number;
+    assigned: number;
+    on_the_way: number;
+    in_progress: number;
+    waiting_cash: number;
+  };
+  /** Мастера, у которых одновременно больше одной заявки в пути или на месте. */
+  busyMasters: { masterId: string; count: number }[];
+  /** Телефоны, у которых больше одной живой заявки — возможно, завели дважды. */
+  duplicatePhones: { phone: string; count: number }[];
+};
+
+/**
+ * Сводка по этапам для шапки списка.
+ *
+ * Считается отдельно от списка на экране: фильтр и поиск не должны менять
+ * цифры «сколько новых, сколько в пути». Закрытые и оплаченные сюда не
+ * попадают — это уже не работа.
+ */
+export async function stageSummary(): Promise<StageSummary> {
+  const { data, error } = await db()
+    .from("orders")
+    .select("status, master_id, client_phone, cash_confirmed_at")
+    .or(
+      "status.in.(new,assigned,on_the_way,in_progress),and(status.eq.done,cash_confirmed_at.is.null)",
+    )
+    .limit(2000);
+
+  if (error) throw error;
+
+  const counts = { new: 0, assigned: 0, on_the_way: 0, in_progress: 0, waiting_cash: 0 };
+  const perMaster = new Map<string, number>();
+  const perPhone = new Map<string, number>();
+
+  for (const row of data ?? []) {
+    if (row.status === "done") {
+      counts.waiting_cash += 1;
+      continue;
+    }
+
+    const status = row.status as keyof typeof counts;
+    if (status in counts) counts[status] += 1;
+
+    if ((row.status === "on_the_way" || row.status === "in_progress") && row.master_id) {
+      perMaster.set(row.master_id, (perMaster.get(row.master_id) ?? 0) + 1);
+    }
+
+    const phone = row.client_phone.replace(/\D/g, "").replace(/^8/, "7");
+    perPhone.set(phone, (perPhone.get(phone) ?? 0) + 1);
+  }
+
+  return {
+    counts,
+    busyMasters: [...perMaster]
+      .filter(([, count]) => count > 1)
+      .map(([masterId, count]) => ({ masterId, count })),
+    duplicatePhones: [...perPhone]
+      .filter(([, count]) => count > 1)
+      .map(([phone, count]) => ({ phone, count })),
+  };
+}

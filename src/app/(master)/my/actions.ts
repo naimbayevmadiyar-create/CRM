@@ -6,6 +6,7 @@ import {
   advanceOrderStatus,
   closeOrderWithReport,
   getOrder,
+  reopenOrder,
   saveOrderDraft,
   updateClientDetails,
 } from "@/lib/db/orders";
@@ -216,5 +217,24 @@ export async function saveProgress(
   revalidatePath("/my");
   revalidatePath("/orders");
   revalidatePath(`/print/workorder/${orderId}`);
+  return { ok: true };
+}
+
+/**
+ * Мастер сам открывает свой отчёт заново — пока директор не принял деньги.
+ * После приёма денег исправить отчёт может только директор.
+ */
+export async function reopenMyOrder(orderId: string): Promise<ActionResult> {
+  const session = await requireMaster();
+
+  try {
+    await reopenOrder(orderId, { id: session.masterId, role: "master" });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось открыть заявку" };
+  }
+
+  revalidatePath("/my");
+  revalidatePath("/my/closed");
+  revalidatePath("/orders");
   return { ok: true };
 }
