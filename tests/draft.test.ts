@@ -16,6 +16,7 @@ const draft = {
   total: 55000,
   expenses: 0,
   expensesNote: "",
+  expensesPayer: "company" as const,
   items: [
     { title: "Диагностика", price: 10000, quantity: 1 },
     { title: "Ремонт модуля управления", price: 45000, quantity: 1 },
@@ -47,5 +48,12 @@ describe("черновик отчёта", () => {
 
     store.set("cs_draft_order-1", JSON.stringify({ total: "много" }));
     expect(readDraft("order-1")).toBeNull();
+  });
+
+  it("старый черновик без пометки о расходе считает его расходом компании", () => {
+    const { expensesPayer, ...old } = draft;
+    void expensesPayer;
+    store.set("cs_draft_order-1", JSON.stringify(old));
+    expect(readDraft("order-1")?.expensesPayer).toBe("company");
   });
 });

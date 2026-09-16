@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { formatDateTime, formatPhone, phoneDigits } from "@/lib/format";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { masterButtonLabel, nextForMaster, STATUS_LABEL, type Status } from "@/lib/status";
-import type { ApplianceKind } from "@/types/db";
+import type { ApplianceKind, ExpensesPayer } from "@/types/db";
 import {
   advance,
   finish,
@@ -44,6 +44,7 @@ export type MasterOrder = {
   total_amount: number | null;
   expenses: number;
   expenses_note: string | null;
+  expenses_payer: ExpensesPayer;
 };
 
 export function OrderCard({
@@ -237,6 +238,7 @@ export function OrderCard({
             total: order.total_amount ?? 0,
             expenses: order.expenses,
             expensesNote: order.expenses_note ?? "",
+            expensesPayer: order.expenses_payer,
             items,
           }}
           onSaveDraft={onSaveDraft}

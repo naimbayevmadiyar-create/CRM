@@ -13,11 +13,23 @@ import {
 import { getProfile, setMasterSignature } from "@/lib/db/profiles";
 import { getDefaultSharePercent } from "@/lib/db/settings";
 import { nextForMaster } from "@/lib/status";
-import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/settlement";
+import {
+  EXPENSES_PAYERS,
+  PAYMENT_METHODS,
+  type ExpensesPayer,
+  type PaymentMethod,
+} from "@/lib/settlement";
 import { replaceOrderItems } from "@/lib/db/orderItems";
 import { getInvoice, markInvoicePaid } from "@/lib/db/invoices";
 
 export type ActionResult = { ok?: true; error?: string };
+
+/** Чужие значения с клиента не принимаем: расход по умолчанию — деньги компании. */
+function payer(value: string): ExpensesPayer {
+  return (EXPENSES_PAYERS as readonly string[]).includes(value)
+    ? (value as ExpensesPayer)
+    : "company";
+}
 
 /** Следующий этап определяем на сервере — клиент не диктует, куда переводить. */
 export async function advance(orderId: string): Promise<ActionResult> {
@@ -43,6 +55,7 @@ export type FinishReport = {
   total: number;
   expenses: number;
   expensesNote?: string;
+  expensesPayer: string;
   paymentMethod: string;
   items?: { title: string; price: number; quantity: number }[];
 };
@@ -66,6 +79,8 @@ export async function finish(
 
   if (!paymentMethod) return { error: "Отметьте, как заплатили" };
 
+  const expensesPayer = payer(report.expensesPayer);
+
   // Процент берём с профиля мастера, а не из формы: у кого-то 50/50,
   // у кого-то 60/40, и менять его вправе только директор.
   const [profile, fallback] = await Promise.all([
@@ -81,6 +96,7 @@ export async function finish(
         total: report.total,
         expenses: report.expenses,
         expensesNote: report.expensesNote,
+        expensesPayer,
         paymentMethod,
         sharePercent,
       },
@@ -189,6 +205,7 @@ export type DraftReport = {
   total: number;
   expenses: number;
   expensesNote?: string;
+  expensesPayer: string;
   items: { title: string; price: number; quantity: number }[];
 };
 
@@ -206,7 +223,12 @@ export async function saveProgress(
   try {
     await saveOrderDraft(
       orderId,
-      { total: draft.total, expenses: draft.expenses, expensesNote: draft.expensesNote },
+      {
+        total: draft.total,
+        expenses: draft.expenses,
+        expensesNote: draft.expensesNote,
+        expensesPayer: payer(draft.expensesPayer),
+      },
       actor,
     );
     await replaceOrderItems(orderId, draft.items);

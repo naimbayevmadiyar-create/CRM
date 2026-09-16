@@ -92,6 +92,7 @@ function Report({
   const settlement = calcSettlement({
     total,
     expenses: order.expenses,
+    expensesPayer: order.expenses_payer,
     sharePercent: order.company_share_percent,
     paymentMethod: order.payment_method ?? "cash",
   });
@@ -151,7 +152,9 @@ function Report({
               /* главный вопрос директора к закрытой заявке — на что ушёл расход */
               label={
                 order.expenses > 0
-                  ? `Запчасти · ${order.expenses_note || "на что — не указано"}`
+                  ? `Запчасти (${order.expenses_payer === "master" ? "деньги мастера" : "деньги компании"}) · ${
+                      order.expenses_note || "на что — не указано"
+                    }`
                   : "Запчасти"
               }
               value={order.expenses > 0 ? `− ${formatTenge(order.expenses)}` : "не было"}

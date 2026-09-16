@@ -50,6 +50,7 @@ export default async function OrdersPage({
     const { amount } = calcSettlement({
       total: order.total_amount,
       expenses: order.expenses,
+      expensesPayer: order.expenses_payer,
       sharePercent: order.company_share_percent,
       paymentMethod: "cash",
     });

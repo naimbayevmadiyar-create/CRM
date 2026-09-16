@@ -1,7 +1,12 @@
 "use client";
 
 import { formatTenge } from "@/lib/format";
-import { calcSettlement, PAYMENT_LABEL, type PaymentMethod } from "@/lib/settlement";
+import {
+  calcSettlement,
+  PAYMENT_LABEL,
+  type ExpensesPayer,
+  type PaymentMethod,
+} from "@/lib/settlement";
 
 /**
  * Деньги закрытого заказа в четыре клетки.
@@ -13,17 +18,20 @@ import { calcSettlement, PAYMENT_LABEL, type PaymentMethod } from "@/lib/settlem
 export function OrderMoney({
   total,
   expenses,
+  expensesPayer,
   paymentMethod,
   sharePercent,
 }: {
   total: number;
   expenses: number;
+  expensesPayer: ExpensesPayer;
   paymentMethod: PaymentMethod | null;
   sharePercent: number;
 }) {
   const settlement = calcSettlement({
     total,
     expenses,
+    expensesPayer,
     sharePercent,
     paymentMethod: paymentMethod ?? "cash",
   });
@@ -39,7 +47,7 @@ export function OrderMoney({
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Cell label="Согласовано" value={formatTenge(total)} />
       <Cell
-        label="Расход"
+        label={expenses > 0 ? (expensesPayer === "master" ? "Расход мастера" : "Расход компании") : "Расход"}
         value={expenses > 0 ? `− ${formatTenge(expenses)}` : "—"}
         muted={expenses === 0}
       />

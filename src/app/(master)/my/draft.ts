@@ -1,4 +1,5 @@
 import type { DraftItem } from "./ItemsEditor";
+import type { ExpensesPayer } from "@/lib/settlement";
 
 /**
  * Черновик отчёта на самом телефоне.
@@ -15,6 +16,7 @@ export type Draft = {
   total: number;
   expenses: number;
   expensesNote: string;
+  expensesPayer: ExpensesPayer;
   items: DraftItem[];
 };
 
@@ -30,6 +32,7 @@ export function readDraft(orderId: string): Draft | null {
       total: value.total,
       expenses: typeof value.expenses === "number" ? value.expenses : 0,
       expensesNote: typeof value.expensesNote === "string" ? value.expensesNote : "",
+      expensesPayer: value.expensesPayer === "master" ? "master" : "company",
       items: value.items,
     };
   } catch {

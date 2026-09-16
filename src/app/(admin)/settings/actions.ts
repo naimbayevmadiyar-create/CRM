@@ -50,6 +50,11 @@ export async function saveSettings(
     return { error: "Ставка налога должна быть числом от 0 до 100" };
   }
 
+  const partnerShare = Number(String(formData.get("partner_share_percent") ?? ""));
+  if (!Number.isFinite(partnerShare) || partnerShare < 0 || partnerShare > 100) {
+    return { error: "Доля партнёра должна быть числом от 0 до 100" };
+  }
+
   try {
     await updateCompany({
       company_name: name,
@@ -68,6 +73,8 @@ export async function saveSettings(
       payment_purpose_code: text(formData, "payment_purpose_code") ?? "859",
       contract_prefix: text(formData, "contract_prefix") ?? "000",
       tax_percent: tax,
+      partner_share_percent: partnerShare,
+      partner_name: text(formData, "partner_name"),
       logo_image: image(formData, "logo_image"),
       stamp_image: image(formData, "stamp_image"),
     });

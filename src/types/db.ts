@@ -27,6 +27,8 @@ export type LeadSource = "google_ads" | "2gis" | "organic" | "referral" | "direc
 
 export type PaymentMethod = "cash" | "transfer";
 
+export type ExpensesPayer = "company" | "master";
+
 export type ApplianceKind =
   | "washer"
   | "dishwasher"
@@ -90,6 +92,7 @@ type OrderRow = {
   total_amount: number | null;
   expenses: number;
   expenses_note: string | null;
+  expenses_payer: ExpensesPayer;
   payment_method: PaymentMethod | null;
   company_share_percent: number;
   brand: string | null;
@@ -140,6 +143,8 @@ type AppSettingsRow = {
   payment_purpose_code: string;
   contract_prefix: string;
   tax_percent: number;
+  partner_share_percent: number;
+  partner_name: string | null;
   logo_image: string | null;
   stamp_image: string | null;
   kaspi_qr_image: string | null;
@@ -187,6 +192,18 @@ type OrderItemRow = {
   quantity: number;
   warranty_months: number;
   created_at: string;
+};
+
+export type ExpenseCategory = "marketing" | "rent" | "salary" | "other";
+
+type CompanyExpenseRow = {
+  id: string;
+  created_at: string;
+  spent_on: string;
+  category: ExpenseCategory;
+  amount: number;
+  note: string | null;
+  created_by: string | null;
 };
 
 type AppErrorRow = {
@@ -263,6 +280,12 @@ export type Database = {
         Update: Partial<InvoiceItemRow>;
         Relationships: [];
       };
+      company_expenses: {
+        Row: CompanyExpenseRow;
+        Insert: Optional<CompanyExpenseRow, Exclude<keyof CompanyExpenseRow, "amount">>;
+        Update: Partial<CompanyExpenseRow>;
+        Relationships: [];
+      };
       app_errors: {
         Row: AppErrorRow;
         Insert: Optional<AppErrorRow, Exclude<keyof AppErrorRow, "source" | "message">>;
@@ -300,6 +323,8 @@ export type Database = {
       lead_source: LeadSource;
       appliance_kind: ApplianceKind;
       payment_method: PaymentMethod;
+      expenses_payer: ExpensesPayer;
+      expense_category: ExpenseCategory;
     };
     CompositeTypes: Record<never, never>;
   };

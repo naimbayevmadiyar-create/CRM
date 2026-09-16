@@ -5,21 +5,23 @@
  * на запчасти. Всё остальное считается здесь: человеку на морозе арифметику
  * не доверяем, иначе опечатка превращается в спор о деньгах.
  *
- * Запчасти покупает компания. Значит расход — её деньги, и возмещать
- * мастеру нечего: делится только то, что осталось после запчастей.
+ * Делится всегда одно и то же — чистые, то есть согласованное минус запчасти.
+ * А вот кто эти запчасти оплатил, меняет итог расчёта:
  *
- * Пример из практики сервиса:
- *   согласовано 80 000 − запчасти 13 500 = чистыми 66 500
- *   доля компании 50% = 33 250, столько же остаётся мастеру
+ *   компания — расход её, возмещать мастеру нечего;
+ *   мастер   — он купил детали из своих или из денег клиента, и эту сумму
+ *              ему возвращают сверх его доли.
  *
- * Дальше зависит от того, где физически лежат деньги:
+ * Пример: согласовано 80 000 − запчасти 13 500 = чистыми 66 500,
+ * пополам по 33 250.
  *
- *   наличными — все 80 000 собрал мастер, своих денег он не тратил.
- *               Себе оставляет свою долю 33 250, вносит 46 750:
- *               долю компании плюс её же деньги за запчасти.
- *
- *   на счёт   — все 80 000 у компании, запчасти она оплатила сама.
- *               Мастеру причитается только его доля — 33 250.
+ *   наличными, запчасти компании — мастер собрал все 80 000. Себе оставляет
+ *     33 250, вносит 46 750: долю компании плюс её же деньги за запчасти.
+ *   наличными, запчасти мастера  — он уже потратился, поэтому вносит только
+ *     долю компании 33 250, а 46 750 остаются у него.
+ *   на счёт, запчасти компании   — деньги у компании, мастеру её доля 33 250.
+ *   на счёт, запчасти мастера    — ему возвращают долю и потраченное:
+ *     33 250 + 13 500 = 46 750.
  */
 
 export const PAYMENT_METHODS = ["cash", "transfer"] as const;
@@ -30,14 +32,24 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   transfer: "На счёт",
 };
 
+export const EXPENSES_PAYERS = ["company", "master"] as const;
+export type ExpensesPayer = (typeof EXPENSES_PAYERS)[number];
+
+export const EXPENSES_PAYER_LABEL: Record<ExpensesPayer, string> = {
+  company: "Купила компания",
+  master: "Купил мастер",
+};
+
 export const MAX_SHARE_PERCENT = 100;
 export const DEFAULT_SHARE_PERCENT = 50;
 
 export type SettlementInput = {
   /** Согласовано с клиентом. */
   total: number;
-  /** Потрачено на запчасти. Деньги компании. */
+  /** Потрачено на запчасти. */
   expenses: number;
+  /** Чьи это были деньги. */
+  expensesPayer?: ExpensesPayer;
   /** Доля компании от чистых, в процентах. */
   sharePercent: number;
   paymentMethod: PaymentMethod;
@@ -47,14 +59,16 @@ export type Settlement = {
   net: number;
   /** Прибыль компании. */
   companyCut: number;
-  /** Заработок мастера. */
+  /** Заработок мастера, без учёта возврата за запчасти. */
   masterCut: number;
   sharePercent: number;
   /** Кто кому должен по итогу. */
   direction: "master_owes" | "company_owes";
   /** Сколько именно должен — всегда положительное число. */
   amount: number;
-  /** Запчасти дороже согласованного: заказ ушёл в минус. */
+  /** Сколько мастеру возвращают за купленные им детали. */
+  reimbursement: number;
+  /** Расход превысил согласованное: заказ ушёл в минус. */
   isLoss: boolean;
 };
 
@@ -67,6 +81,7 @@ export function calcSettlement(input: SettlementInput): Settlement {
   const total = Math.trunc(input.total) || 0;
   const expenses = Math.trunc(input.expenses) || 0;
   const sharePercent = clampPercent(input.sharePercent);
+  const payer: ExpensesPayer = input.expensesPayer ?? "company";
 
   const net = total - expenses;
 
@@ -75,13 +90,16 @@ export function calcSettlement(input: SettlementInput): Settlement {
   const companyCut = Math.round((net * sharePercent) / 100);
   const masterCut = Math.max(0, net - companyCut);
 
+  // мастеру возвращают только то, что он потратил сам
+  const reimbursement = payer === "master" ? Math.min(expenses, total) : 0;
+
   const direction = input.paymentMethod === "cash" ? "master_owes" : "company_owes";
 
   const amount =
     direction === "master_owes"
-      ? // всё собранное, кроме заработка мастера: запчасти возвращаются компании
-        Math.max(0, total - masterCut)
-      : masterCut;
+      ? // всё собранное, кроме заработка мастера и его же затрат на детали
+        Math.max(0, total - masterCut - reimbursement)
+      : masterCut + reimbursement;
 
   return {
     net,
@@ -90,6 +108,7 @@ export function calcSettlement(input: SettlementInput): Settlement {
     sharePercent,
     direction,
     amount,
+    reimbursement,
     isLoss: net < 0,
   };
 }

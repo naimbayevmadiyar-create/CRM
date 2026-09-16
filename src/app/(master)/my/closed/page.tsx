@@ -48,6 +48,7 @@ export default async function ClosedOrdersPage() {
             const settlement = calcSettlement({
               total,
               expenses: order.expenses,
+              expensesPayer: order.expenses_payer,
               sharePercent: order.company_share_percent,
               paymentMethod: order.payment_method ?? "cash",
             });
@@ -75,9 +76,10 @@ export default async function ClosedOrdersPage() {
                     {order.expenses > 0 && (
                       <Row
                         label={
-                          order.expenses_note
-                            ? `Запчасти · ${order.expenses_note}`
-                            : "Запчасти"
+                          (order.expenses_payer === "master"
+                            ? "Запчасти (ваши деньги)"
+                            : "Запчасти (деньги компании)") +
+                          (order.expenses_note ? ` · ${order.expenses_note}` : "")
                         }
                         value={`− ${formatTenge(order.expenses)}`}
                       />

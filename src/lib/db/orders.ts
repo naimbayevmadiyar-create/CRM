@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/supabase";
 import { ACTIVE_STATUSES, canTransition, type Status } from "@/lib/status";
 import type { Source } from "@/lib/source";
-import type { ApplianceKind, PaymentMethod } from "@/types/db";
+import type { ApplianceKind, ExpensesPayer, PaymentMethod } from "@/types/db";
 
 export type Order = {
   id: string;
@@ -19,6 +19,8 @@ export type Order = {
   total_amount: number | null;
   expenses: number;
   expenses_note: string | null;
+  /** Чьи деньги ушли на запчасти. */
+  expenses_payer: ExpensesPayer;
   payment_method: PaymentMethod | null;
   company_share_percent: number;
   brand: string | null;
@@ -40,7 +42,7 @@ export type Actor = { id?: string; role: "admin" | "master" };
 
 // Строка колонок должна быть цельным литералом: supabase-js разбирает её
 // на уровне типов, а склейка через + превращает её в обычный string.
-const COLUMNS = "id, number, created_at, client_name, client_phone, address, appliance, problem, status, master_id, scheduled_at, total_amount, expenses, expenses_note, payment_method, company_share_percent, brand, model, serial_number, contract_number, contract_date, is_legal_entity, org_name, org_bin, org_address, at_service_center, source, cash_confirmed_at";
+const COLUMNS = "id, number, created_at, client_name, client_phone, address, appliance, problem, status, master_id, scheduled_at, total_amount, expenses, expenses_note, expenses_payer, payment_method, company_share_percent, brand, model, serial_number, contract_number, contract_date, is_legal_entity, org_name, org_bin, org_address, at_service_center, source, cash_confirmed_at";
 
 /** Заявки мастера: только его и только активные. Архив ему не нужен. */
 export async function listOrdersForMaster(masterId: string): Promise<Order[]> {
@@ -236,6 +238,7 @@ export async function closeOrderWithReport(
     total: number;
     expenses: number;
     expensesNote?: string;
+    expensesPayer: ExpensesPayer;
     paymentMethod: PaymentMethod;
     sharePercent: number;
   },
@@ -263,6 +266,7 @@ export async function closeOrderWithReport(
       total_amount: report.total,
       expenses: report.expenses,
       expenses_note: report.expensesNote?.trim() || null,
+      expenses_payer: report.expensesPayer,
       payment_method: report.paymentMethod,
       company_share_percent: report.sharePercent,
     })
@@ -463,7 +467,12 @@ export async function listUnconfirmedCash(limit = 100): Promise<Order[]> {
  */
 export async function saveOrderDraft(
   id: string,
-  draft: { total: number; expenses: number; expensesNote?: string },
+  draft: {
+    total: number;
+    expenses: number;
+    expensesNote?: string;
+    expensesPayer: ExpensesPayer;
+  },
   actor: Actor,
 ): Promise<void> {
   if (!Number.isInteger(draft.total) || draft.total < 0) {
@@ -492,6 +501,7 @@ export async function saveOrderDraft(
       total_amount: draft.total > 0 ? draft.total : null,
       expenses: draft.expenses,
       expenses_note: draft.expensesNote?.trim() || null,
+      expenses_payer: draft.expensesPayer,
     })
     .eq("id", id);
 

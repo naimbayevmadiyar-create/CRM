@@ -494,6 +494,7 @@ function OrderRow({
           <OrderMoney
             total={order.total_amount}
             expenses={order.expenses}
+            expensesPayer={order.expenses_payer}
             paymentMethod={order.payment_method}
             sharePercent={order.company_share_percent}
           />

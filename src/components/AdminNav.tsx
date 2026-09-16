@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/orders", label: "Заявки" },
   { href: "/leads", label: "Обращения" },
   { href: "/invoices", label: "Счета" },
+  { href: "/expenses", label: "Расходы" },
   { href: "/masters", label: "Мастера" },
   { href: "/analytics", label: "Аналитика" },
   { href: "/settings", label: "Настройки" },

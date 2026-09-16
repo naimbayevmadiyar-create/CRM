@@ -2,27 +2,29 @@ import { describe, expect, it } from "vitest";
 import { calcSettlement, MAX_SHARE_PERCENT } from "@/lib/settlement";
 
 /*
-  Запчасти покупает компания. Значит расход — её деньги, и мастеру
-  возмещать нечего: он делит с компанией только чистые.
+  Делятся всегда чистые: согласовано минус запчасти. Меняет итог только то,
+  чьи деньги ушли на детали.
 
   Согласовано 80 000, запчасти 13 500, чистыми 66 500, пополам по 33 250.
 
-  Наличными: мастер собрал все 80 000, своих денег не тратил. Себе он
-  оставляет 33 250, а вернуть должен 46 750 — это доля компании плюс
-  её же деньги за запчасти.
+  Запчасти компании:
+    наличными — мастер собрал 80 000, оставляет себе 33 250, вносит 46 750;
+    на счёт   — деньги у компании, мастеру причитается 33 250.
 
-  На счёт: у компании и так все 80 000, запчасти она оплатила сама.
-  Мастеру причитается только его доля — 33 250.
+  Запчасти мастера (он взял у клиента или потратил свои):
+    наличными — вносит только долю компании 33 250, 46 750 остаются у него;
+    на счёт   — компания возвращает долю и затраты: 33 250 + 13 500 = 46 750.
 */
 
-describe("calcSettlement — пример из жизни", () => {
-  const base = { total: 80000, expenses: 13500, sharePercent: 50 };
+describe("calcSettlement — запчасти купила компания", () => {
+  const base = { total: 80000, expenses: 13500, sharePercent: 50 } as const;
 
   it("считает чистые и доли", () => {
     const r = calcSettlement({ ...base, paymentMethod: "cash" });
     expect(r.net).toBe(66500);
     expect(r.companyCut).toBe(33250);
     expect(r.masterCut).toBe(33250);
+    expect(r.reimbursement).toBe(0);
   });
 
   it("наличные: мастер вносит долю компании и стоимость запчастей", () => {
@@ -43,6 +45,46 @@ describe("calcSettlement — пример из жизни", () => {
   });
 });
 
+describe("calcSettlement — запчасти купил мастер", () => {
+  const base = {
+    total: 80000,
+    expenses: 13500,
+    sharePercent: 50,
+    expensesPayer: "master",
+  } as const;
+
+  it("доли те же: делятся всё равно чистые", () => {
+    const r = calcSettlement({ ...base, paymentMethod: "cash" });
+    expect(r.net).toBe(66500);
+    expect(r.companyCut).toBe(33250);
+    expect(r.masterCut).toBe(33250);
+  });
+
+  it("наличные: вносит только долю компании, затраты остаются у него", () => {
+    const r = calcSettlement({ ...base, paymentMethod: "cash" });
+    expect(r.reimbursement).toBe(13500);
+    expect(r.amount).toBe(33250);
+  });
+
+  it("безнал: компания возвращает долю и потраченное на детали", () => {
+    const r = calcSettlement({ ...base, paymentMethod: "transfer" });
+    expect(r.direction).toBe("company_owes");
+    expect(r.amount).toBe(46750);
+  });
+
+  it("наличными у мастера остаётся его доля плюс его же затраты", () => {
+    const r = calcSettlement({ ...base, paymentMethod: "cash" });
+    expect(base.total - r.amount).toBe(r.masterCut + r.reimbursement);
+  });
+
+  it("компания получает свою долю при любом способе оплаты", () => {
+    const cash = calcSettlement({ ...base, paymentMethod: "cash" });
+    const transfer = calcSettlement({ ...base, paymentMethod: "transfer" });
+    expect(cash.amount).toBe(cash.companyCut);
+    expect(transfer.amount - transfer.reimbursement).toBe(transfer.masterCut);
+  });
+});
+
 describe("calcSettlement — без расхода", () => {
   it("наличными мастер возвращает ровно долю компании", () => {
     const r = calcSettlement({
@@ -56,14 +98,22 @@ describe("calcSettlement — без расхода", () => {
     expect(r.amount).toBe(10000);
   });
 
-  it("безнал без расхода возвращает долю мастера", () => {
-    const r = calcSettlement({
+  it("чей расход — неважно, когда расхода нет", () => {
+    const company = calcSettlement({
       total: 20000,
       expenses: 0,
       sharePercent: 50,
       paymentMethod: "transfer",
+      expensesPayer: "company",
     });
-    expect(r.amount).toBe(10000);
+    const master = calcSettlement({
+      total: 20000,
+      expenses: 0,
+      sharePercent: 50,
+      paymentMethod: "transfer",
+      expensesPayer: "master",
+    });
+    expect(company.amount).toBe(master.amount);
   });
 });
 
@@ -153,6 +203,18 @@ describe("calcSettlement — защита от мусора", () => {
     });
     expect(r.masterCut).toBe(0);
     expect(r.amount).toBe(10000);
+  });
+
+  it("возврат за детали не превышает собранного с клиента", () => {
+    const r = calcSettlement({
+      total: 10000,
+      expenses: 15000,
+      sharePercent: 50,
+      paymentMethod: "cash",
+      expensesPayer: "master",
+    });
+    expect(r.reimbursement).toBe(10000);
+    expect(r.amount).toBe(0);
   });
 
   it("доля за пределами шкалы приводится к границам", () => {

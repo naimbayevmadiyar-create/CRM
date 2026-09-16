@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { cn, formatTenge } from "@/lib/format";
 import {
   calcSettlement,
+  EXPENSES_PAYERS,
   PAYMENT_LABEL,
   PAYMENT_METHODS,
+  type ExpensesPayer,
   type PaymentMethod,
 } from "@/lib/settlement";
 import { ItemsEditor, type DraftItem } from "./ItemsEditor";
@@ -35,11 +37,18 @@ export function FinishForm({
 }: {
   orderId: string;
   /** То, что мастер уже сохранил раньше. */
-  initial: { total: number; expenses: number; expensesNote: string; items: DraftItem[] };
+  initial: {
+    total: number;
+    expenses: number;
+    expensesNote: string;
+    expensesPayer: ExpensesPayer;
+    items: DraftItem[];
+  };
   onSaveDraft: (draft: {
     total: number;
     expenses: number;
     expensesNote: string;
+    expensesPayer: ExpensesPayer;
     items: DraftItem[];
   }) => Promise<string | null>;
   /** Доля компании этого мастера. Меняет её только директор. */
@@ -49,6 +58,7 @@ export function FinishForm({
     total: number;
     expenses: number;
     expensesNote: string;
+    expensesPayer: ExpensesPayer;
     paymentMethod: PaymentMethod;
     items: DraftItem[];
   }) => void;
@@ -61,6 +71,7 @@ export function FinishForm({
   const [total, setTotal] = useState(start.total ? String(start.total) : "");
   const [expenses, setExpenses] = useState(start.expenses ? String(start.expenses) : "");
   const [note, setNote] = useState(start.expensesNote);
+  const [payer, setPayer] = useState<ExpensesPayer>(start.expensesPayer);
   const [payment, setPayment] = useState<PaymentMethod | null>(null);
   const [items, setItems] = useState<DraftItem[]>(start.items);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +89,7 @@ export function FinishForm({
   const settlement = calcSettlement({
     total: totalValue,
     expenses: expensesValue,
+    expensesPayer: payer,
     sharePercent,
     paymentMethod: payment ?? "cash",
   });
@@ -91,9 +103,10 @@ export function FinishForm({
       total: totalValue,
       expenses: expensesValue,
       expensesNote: note,
+      expensesPayer: payer,
       items,
     });
-  }, [dirty, orderId, totalValue, expensesValue, note, items]);
+  }, [dirty, orderId, totalValue, expensesValue, note, payer, items]);
 
   function change<T>(setter: (value: T) => void) {
     return (value: T) => {
@@ -113,6 +126,7 @@ export function FinishForm({
         total: totalValue,
         expenses: expensesValue,
         expensesNote: note,
+        expensesPayer: payer,
         items,
       });
       if (failure) {
@@ -149,6 +163,7 @@ export function FinishForm({
       total: totalValue,
       expenses: expensesValue,
       expensesNote: note,
+      expensesPayer: payer,
       paymentMethod: payment,
       items,
     });
@@ -180,11 +195,33 @@ export function FinishForm({
         onChange={change(setTotal)}
       />
 
-      <Money
-        label="Запчасти (деньги компании)"
-        value={expenses}
-        onChange={change(setExpenses)}
-      />
+      <Money label="Запчасти" value={expenses} onChange={change(setExpenses)} />
+
+      {/* Чьи это были деньги — от этого зависит расчёт: свои мастеру вернут,
+          деньги компании он возвращает вместе с её долей. */}
+      {expensesValue > 0 && (
+        <div>
+          <p className="mb-1.5 text-sm text-muted">Запчасти оплатил</p>
+          <div className="grid grid-cols-2 gap-2">
+            {EXPENSES_PAYERS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => change(setPayer)(option)}
+                aria-pressed={payer === option}
+                className={cn(
+                  "h-14 rounded-[var(--radius-card)] border text-base font-medium transition-colors",
+                  payer === option
+                    ? "border-primary bg-primary text-primaryink"
+                    : "border-border bg-surface text-text",
+                )}
+              >
+                {option === "company" ? "Компания" : "Я сам"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {expensesValue > 0 && (
         <input
@@ -240,10 +277,18 @@ export function FinishForm({
             />
           </div>
 
+          {settlement.reimbursement > 0 && (
+            <Row
+              label="Возврат за запчасти"
+              value={formatTenge(settlement.reimbursement)}
+            />
+          )}
+
           {settlement.direction === "master_owes" && expensesValue > 0 && (
             <p className="mt-1 text-xs text-muted">
-              Доля компании {formatTenge(settlement.companyCut)} плюс её же деньги
-              за запчасти {formatTenge(expensesValue)}
+              {payer === "company"
+                ? `Доля компании ${formatTenge(settlement.companyCut)} плюс её же деньги за запчасти ${formatTenge(expensesValue)}`
+                : `Запчасти вы оплатили сами — эти деньги остаются у вас`}
             </p>
           )}
         </dl>

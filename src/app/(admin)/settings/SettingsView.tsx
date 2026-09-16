@@ -161,6 +161,28 @@ export function SettingsView({
         </div>
       </Section>
 
+      <Section title="Партнёр">
+        <Field
+          label="Имя партнёра"
+          name="partner_name"
+          defaultValue={company.partner_name ?? ""}
+          placeholder="Необязательно"
+        />
+        <div>
+          <Field
+            label="Доля партнёра от чистой прибыли, %"
+            name="partner_share_percent"
+            inputMode="numeric"
+            defaultValue={String(company.partner_share_percent)}
+            className="max-w-40"
+          />
+          <p className="mt-1.5 text-sm text-muted">
+            Чистая прибыль — касса минус расходы компании. Ноль означает, что
+            партнёра нет, и блок в аналитике не показывается.
+          </p>
+        </div>
+      </Section>
+
       <Section title="Расчёт с мастерами">
         <div className="sm:col-span-2">
           <Field
