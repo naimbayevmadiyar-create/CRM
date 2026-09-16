@@ -20,7 +20,16 @@ import {
  */
 
 const PUBLIC_PREFIXES = ["/login", "/api/track"];
-const ADMIN_PREFIXES = ["/orders", "/leads", "/masters", "/analytics", "/invoices"];
+const ADMIN_PREFIXES = [
+  "/orders",
+  "/leads",
+  "/masters",
+  "/analytics",
+  "/invoices",
+  "/expenses",
+  "/cleanup",
+  "/settings",
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
