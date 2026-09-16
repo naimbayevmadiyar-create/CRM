@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FileDown } from "lucide-react";
 import dynamic from "next/dynamic";
 import { formatDuration, formatTenge, TIMEZONE } from "@/lib/format";
 import { SOURCE_LABEL, type Source } from "@/lib/source";
@@ -126,6 +127,18 @@ export function AnalyticsView({
               </Link>
             </p>
           )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={day ? `/print/report?day=${day}` : `/print/report?days=${days}`}
+            target="_blank"
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-card)]
+                       border border-border bg-surface px-3 text-sm font-medium"
+          >
+            <FileDown size={15} aria-hidden className="text-muted" />
+            Отчёт в PDF
+          </Link>
         </div>
 
         <nav className="flex flex-wrap gap-1" aria-label="Период">
