@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/supabase";
+import { hashPassword } from "@/lib/passwords";
 
 /** Доля компании по умолчанию для новых закрытий. */
 export async function getDefaultSharePercent(): Promise<number> {
@@ -38,4 +39,43 @@ export async function getTaxPercent(): Promise<number> {
 
   if (error) throw error;
   return Number(data.tax_percent);
+}
+
+/**
+ * Пароль администратора.
+ *
+ * Хеш лежит в базе, чтобы директор мог сменить пароль сам, из настроек.
+ * Пока он ни разу не менялся, входом остаётся ADMIN_PASSWORD_HASH из
+ * переменных окружения — иначе после обновления никто бы не вошёл.
+ */
+export async function getAdminAuth(): Promise<{
+  hash: string | null;
+  version: number;
+}> {
+  const { data, error } = await db()
+    .from("app_settings")
+    .select("admin_password_hash, admin_password_version")
+    .eq("id", true)
+    .single();
+
+  if (error) throw error;
+  return { hash: data.admin_password_hash, version: data.admin_password_version };
+}
+
+/** Смена пароля админа. Версия растёт — прежние входы отваливаются. */
+export async function setAdminPassword(plain: string): Promise<number> {
+  const current = await getAdminAuth();
+  const version = current.version + 1;
+
+  const { error } = await db()
+    .from("app_settings")
+    .update({
+      admin_password_hash: hashPassword(plain),
+      admin_password_version: version,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+
+  if (error) throw error;
+  return version;
 }

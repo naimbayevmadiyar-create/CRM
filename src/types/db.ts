@@ -127,6 +127,8 @@ type OrderEventRow = {
 type AppSettingsRow = {
   id: boolean;
   master_password_version: number;
+  admin_password_hash: string | null;
+  admin_password_version: number;
   default_company_share_percent: number;
   company_name: string;
   company_legal_name: string | null;

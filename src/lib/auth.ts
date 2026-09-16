@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, verifySession, type SessionPayload } from "@/lib/session";
 import { getMasterAuthState } from "@/lib/db/profiles";
+import { getAdminAuth } from "@/lib/db/settings";
 
 /**
  * Кто сейчас на той стороне.
@@ -21,6 +22,13 @@ export async function getSession(): Promise<SessionPayload | null> {
 
   const payload = await verifySession(token);
   if (!payload) return null;
+
+  if (payload.role === "admin") {
+    // сменил пароль — прежние входы, в том числе на других устройствах,
+    // становятся недействительными
+    const { version } = await getAdminAuth();
+    if (payload.pv !== version) return null;
+  }
 
   if (payload.role === "master") {
     if (!payload.masterId) return null;

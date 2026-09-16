@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { verifyPassword } from "@/lib/passwords";
 import { signSession, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from "@/lib/session";
 import { listMasterCredentials } from "@/lib/db/profiles";
+import { getAdminAuth } from "@/lib/db/settings";
 import { db } from "@/lib/supabase";
 
 const WINDOW_SECONDS = 15 * 60;
@@ -37,12 +38,15 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     return { error: "Слишком много попыток. Попробуйте через 15 минут." };
   }
 
-  const adminHash = process.env.ADMIN_PASSWORD_HASH ?? "";
   const store = await cookies();
 
+  // Свой пароль директора хранится в базе: он меняет его из настроек сам.
+  // Пока не менял ни разу — работает запасной из переменных окружения.
+  const admin = await getAdminAuth();
+  const adminHash = admin.hash ?? process.env.ADMIN_PASSWORD_HASH ?? "";
+
   if (adminHash && verifyPassword(password, adminHash)) {
-    // у админа версия пароля мастера не проверяется, поэтому храним ноль
-    const token = await signSession({ role: "admin", pv: 0 });
+    const token = await signSession({ role: "admin", pv: admin.version });
     store.set(SESSION_COOKIE, token, SESSION_COOKIE_OPTIONS);
     redirect("/orders");
   }
