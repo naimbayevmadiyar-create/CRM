@@ -27,7 +27,6 @@ const ADMIN_PREFIXES = [
   "/analytics",
   "/invoices",
   "/expenses",
-  "/cleanup",
   "/settings",
 ];
 

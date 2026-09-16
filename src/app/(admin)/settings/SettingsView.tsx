@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState } from "react";
-import Link from "next/link";
 import { AlertTriangle, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -199,13 +198,6 @@ export function SettingsView({
           </p>
         </div>
       </Section>
-
-      <p className="text-sm text-muted">
-        Нужно убрать пробные заявки за первые дни —{" "}
-        <Link href="/cleanup" className="underline underline-offset-4">
-          очистка данных за период
-        </Link>
-      </p>
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
