@@ -57,11 +57,11 @@ export default async function ActPage({
           Приложение к Договору № <b>{number}</b> от {date} г.
         </p>
 
-        {/* ФИО частного заказчика оставляем пустой линией: в заявке лежит
-            только имя, а в акте нужна полная подпись — впишет от руки. */}
+        {/* Имя клиента подставляем из заявки: мастер уточняет его на месте,
+            и в акте оно должно стоять. Пусто — останется линия под запись. */}
         <p style={{ marginTop: "3mm" }}>
           Заказчик:{" "}
-          <Fill value={order.is_legal_entity ? order.org_name : null} width="70mm" />
+          <Fill value={order.is_legal_entity ? order.org_name : order.client_name} width="70mm" />
           {"  "}
           Тел.: <Fill value={formatPhone(order.client_phone)} width="40mm" />
         </p>
@@ -116,7 +116,7 @@ export default async function ActPage({
         <div className="doc-signs">
           <SignBlock
             role="Оборудование передал"
-            name={order.is_legal_entity ? order.org_name : null}
+            name={order.is_legal_entity ? order.org_name : order.client_name}
           />
           <SignBlock
             role="Оборудование принял"

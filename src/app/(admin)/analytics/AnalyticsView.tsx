@@ -79,19 +79,17 @@ export function AnalyticsView({
   };
 }) {
   /*
-    Схема расчёта сервиса: касса минус расходы компании — чистая прибыль,
+    Схема расчёта сервиса: касса минус расходы и налог — чистая прибыль,
     и уже от неё считается доля партнёра. Кассой здесь считается прибыль
     компании по закрытым заказам, то есть то, что осталось после расчёта
-    с мастерами и оплаты запчастей.
+    с мастерами и оплаты запчастей. Налог считается с оборота: по упрощённой
+    декларации облагается весь доход, а не остаток.
   */
-  const netProfit = data.company_cut - spent.total;
+  const tax = Math.round((data.turnover * taxPercent) / 100);
+  const netProfit = data.company_cut - spent.total - tax;
   const partnerCut = Math.round((netProfit * partnerPercent) / 100);
   const ownerCut = netProfit - partnerCut;
   const spentByDay = new Map(spent.byDay);
-  // Налог считается с оборота: по упрощённой декларации облагается весь
-  // доход, а не то, что осталось компании после расчёта с мастером.
-  const tax = Math.round((data.turnover * taxPercent) / 100);
-  const afterTax = data.company_cut - tax;
 
   const toOrder = data.leads > 0 ? Math.round((data.orders / data.leads) * 100) : 0;
   const toDone = data.orders > 0 ? Math.round((data.done / data.orders) * 100) : 0;
@@ -226,26 +224,12 @@ export function AnalyticsView({
               />
             </div>
 
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
-                <p className="text-sm text-muted">Прибыль компании</p>
-                <p className="mt-1 text-3xl font-semibold">
-                  {formatTenge(data.company_cut)}
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  доля от чистых по закрытым заказам
-                </p>
-              </div>
-
-              <div className="rounded-[var(--radius-card)] border border-primary/30 bg-primary/5 p-5">
-                <p className="text-sm text-muted">После налога</p>
-                <p className="mt-1 text-3xl font-semibold text-primary">
-                  {formatTenge(afterTax)}
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  минус налог {taxPercent} % с оборота — {formatTenge(tax)}
-                </p>
-              </div>
+            <div className="mt-3 rounded-[var(--radius-card)] border border-border bg-surface p-5">
+              <p className="text-sm text-muted">Касса — прибыль компании</p>
+              <p className="mt-1 text-3xl font-semibold">{formatTenge(data.company_cut)}</p>
+              <p className="mt-1 text-sm text-muted">
+                доля от чистых по закрытым заказам, до расходов и налога
+              </p>
             </div>
 
             <section className="mt-3 rounded-[var(--radius-card)] border border-border bg-surface p-5">
@@ -269,6 +253,7 @@ export function AnalyticsView({
                 {spent.total === 0 && (
                   <Line label="Расходы компании" value="не записаны" muted />
                 )}
+                <Line label={`Налог · ${taxPercent} % с оборота`} value={`− ${formatTenge(tax)}`} />
                 <div className="border-t border-border pt-1.5">
                   <Line
                     label="Чистая прибыль"

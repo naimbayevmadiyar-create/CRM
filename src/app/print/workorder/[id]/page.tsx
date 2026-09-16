@@ -62,7 +62,7 @@ export default async function WorkOrderPage({
             <h2>Данные заказчика</h2>
             <p>
               <span className="doc-label">ФИО</span>
-              <Fill value={order.is_legal_entity ? order.org_name : null} width="45mm" />
+              <Fill value={order.is_legal_entity ? order.org_name : order.client_name} width="45mm" />
             </p>
             <p>
               <span className="doc-label">Адрес</span>
@@ -176,7 +176,7 @@ export default async function WorkOrderPage({
           />
           <SignBlock
             role="Заказчик"
-            name={order.is_legal_entity ? order.org_name : null}
+            name={order.is_legal_entity ? order.org_name : order.client_name}
           />
         </div>
       </article>

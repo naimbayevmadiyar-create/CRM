@@ -63,7 +63,8 @@ export default async function ReportPage({
   const spentByDay = new Map(spent.byDay);
 
   const tax = Math.round((data.turnover * company.tax_percent) / 100);
-  const netProfit = data.company_cut - spent.total;
+  // налог входит в расчёт: партнёр получает долю уже после него
+  const netProfit = data.company_cut - spent.total - tax;
   const partnerCut = Math.round((netProfit * company.partner_share_percent) / 100);
   const ownerCut = netProfit - partnerCut;
 
@@ -135,6 +136,10 @@ export default async function ReportPage({
               />
             ))}
             {spent.total === 0 && <Row label="Расходы компании" value="не записаны" />}
+            <Row
+              label={`Налог ${company.tax_percent} % с оборота`}
+              value={`− ${formatTenge(tax)}`}
+            />
             <Row label="Чистая прибыль" value={formatTenge(netProfit)} bold />
             {company.partner_share_percent > 0 && (
               <>
@@ -149,10 +154,6 @@ export default async function ReportPage({
                 />
               </>
             )}
-            <Row
-              label={`Справочно: налог ${company.tax_percent} % с оборота`}
-              value={formatTenge(tax)}
-            />
           </tbody>
         </table>
 
