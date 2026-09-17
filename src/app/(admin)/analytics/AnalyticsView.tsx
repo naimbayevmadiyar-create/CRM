@@ -196,10 +196,29 @@ export function AnalyticsView({
             <Tile label="Средний чек" value={formatTenge(data.avg_check)} hint="цена одного ремонта" />
           </section>
 
-          {/* Деньги разложены на три величины: раньше «выручка» и «средний чек»
-              показывали одно и то же число и ничего не объясняли. */}
+          {/* Деньги считаются по дню, когда их приняли в кассу: заявка могла быть
+              неделю назад, но в кассу деньги пришли сегодня — они и сегодняшние. */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold">Деньги</h2>
+            <h2 className="text-lg font-semibold">Деньги</h2>
+            <p className="mb-3 mt-1 text-sm text-muted">
+              По дню, когда деньги приняли в кассу, а не по дню заявки. Оплачено
+              заявок за период: {data.paid}.
+            </p>
+
+            {data.pending_orders > 0 && (
+              <Link
+                href="/orders?status=unpaid"
+                className="mb-3 flex items-center justify-between gap-3 rounded-[var(--radius-card)]
+                           border border-warning/40 bg-warning/5 p-4"
+              >
+                <span className="text-sm">
+                  Ещё не сдано: <b>{data.pending_orders}</b> выполненных заявок на{" "}
+                  <b>{formatTenge(data.pending_turnover)}</b>. В деньги периода они
+                  попадут в день, когда вы нажмёте «Принял деньги».
+                </span>
+                <span className="shrink-0 text-sm font-medium text-warning">Открыть</span>
+              </Link>
+            )}
             <div className="grid gap-3 sm:grid-cols-3">
               <Tile
                 label="Оборот"
@@ -433,6 +452,7 @@ export function AnalyticsView({
                     <tr className="border-b border-border text-left text-muted">
                       <th className="px-4 py-3 font-medium">День</th>
                       <th className="px-4 py-3 font-medium">Заявок</th>
+                      <th className="px-4 py-3 font-medium">Оплачено</th>
                       <th className="px-4 py-3 font-medium">Оборот</th>
                       <th className="px-4 py-3 font-medium">Запчасти</th>
                       <th className="px-4 py-3 font-medium">Чистыми</th>
@@ -454,6 +474,7 @@ export function AnalyticsView({
                           </Link>
                         </td>
                         <td className="px-4 py-3">{row.orders}</td>
+                        <td className="px-4 py-3">{row.paid}</td>
                         <td className="px-4 py-3">{formatTenge(row.turnover)}</td>
                         <td className="px-4 py-3">
                           {row.expenses > 0 ? formatTenge(row.expenses) : "—"}
@@ -477,8 +498,9 @@ export function AnalyticsView({
                 </table>
               </div>
               <p className="mt-2 text-sm text-muted">
-                Нажмите на день — увидите его целиком: сколько кому отдать и откуда
-                пришли заявки.
+                «Заявок» — сколько завели в этот день, «Оплачено» — по скольким в этот
+                день приняли деньги. Все суммы — по дню приёма денег. Нажмите на день —
+                увидите его целиком: сколько кому отдать и откуда пришли заявки.
               </p>
             </section>
           )}

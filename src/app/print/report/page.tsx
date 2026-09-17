@@ -94,6 +94,7 @@ export default async function ReportPage({
             <Row label="Заявок заведено" value={String(data.orders)} />
             <Row label="Выполнено" value={String(data.done)} />
             <Row label="Отменено" value={String(data.canceled)} />
+            <Row label="Оплачено за период — по дню приёма денег" value={String(data.paid)} />
             <Row label="Средний чек" value={formatTenge(data.avg_check)} />
             <Row
               label="Медиана до выезда"
@@ -121,6 +122,10 @@ export default async function ReportPage({
             <Row label="Касса — прибыль компании" value={formatTenge(data.company_cut)} bold />
             <Row label="Принято наличными" value={formatTenge(data.cash)} />
             <Row label="Пришло на счёт" value={formatTenge(data.transfer)} />
+            <Row
+              label={`Ещё не сдано на сегодня — заявок ${data.pending_orders}`}
+              value={formatTenge(data.pending_turnover)}
+            />
           </tbody>
         </table>
 
@@ -195,8 +200,9 @@ export default async function ReportPage({
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: "16%" }}>День</th>
-                  <th style={{ width: "10%" }}>Заявок</th>
+                  <th style={{ width: "14%" }}>День</th>
+                  <th style={{ width: "9%" }}>Заявок</th>
+                  <th style={{ width: "10%" }}>Оплачено</th>
                   <th>Оборот</th>
                   <th>Мастерам</th>
                   <th>Касса</th>
@@ -209,6 +215,7 @@ export default async function ReportPage({
                   <tr key={row.day}>
                     <td>{shortDateRu(`${row.day}T12:00:00+05:00`)}</td>
                     <td className="num">{row.orders}</td>
+                    <td className="num">{row.paid}</td>
                     <td className="num">{formatTenge(row.turnover)}</td>
                     <td className="num">
                       {formatTenge(row.net - row.company_cut + row.expenses_master)}
@@ -311,7 +318,8 @@ export default async function ReportPage({
 
         <p className="doc-note" style={{ marginTop: "5mm" }}>
           Отчёт сформирован {longDateRu(new Date().toISOString())} в CRM «{company.company_name}».
-          Деньги считаются по выполненным заявкам за выбранный период.
+          Деньги считаются по дню, когда их приняли в кассу, а не по дню заявки.
+          Выполненные, но не сданные заявки в деньги периода не входят.
         </p>
       </article>
     </div>

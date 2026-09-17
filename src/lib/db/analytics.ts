@@ -25,7 +25,10 @@ export type MasterRow = {
 /** Один день работы: по нему идёт ежедневный расчёт с мастерами. */
 export type DayRow = {
   day: string;
+  /** Заявок заведено в этот день. */
   orders: number;
+  /** Заявок, деньги по которым приняты в этот день. */
+  paid: number;
   turnover: number;
   expenses: number;
   expenses_company: number;
@@ -41,6 +44,11 @@ export type Analytics = {
   orders: number;
   done: number;
   canceled: number;
+  /** Сколько заявок оплачено в периоде — по дню приёма денег. */
+  paid: number;
+  /** Сделано, но деньги ещё не приняты — на сегодня, без привязки к периоду. */
+  pending_orders: number;
+  pending_turnover: number;
 
   /** Сколько согласовано с клиентами — цена ремонтов. */
   turnover: number;
@@ -71,6 +79,9 @@ const EMPTY: Analytics = {
   orders: 0,
   done: 0,
   canceled: 0,
+  paid: 0,
+  pending_orders: 0,
+  pending_turnover: 0,
   turnover: 0,
   expenses: 0,
   expenses_company: 0,
