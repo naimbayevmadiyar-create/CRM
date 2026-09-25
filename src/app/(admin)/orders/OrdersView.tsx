@@ -12,6 +12,7 @@ import {
   Receipt,
   RotateCcw,
   Search,
+  UserMinus,
   X,
 } from "lucide-react";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -33,6 +34,8 @@ import {
   confirmCashAction,
   createOrderAction,
   reopenOrderAction,
+  restoreOrderAction,
+  unassignAction,
   revertCashAction,
   type OrderFormState,
 } from "./actions";
@@ -136,7 +139,7 @@ export function OrdersView({
           <input
             name="q"
             defaultValue={query}
-            placeholder="Телефон, имя, адрес"
+            placeholder="Номер, имя или последние цифры телефона"
             aria-label="Поиск по заявкам"
             className="h-11 w-full rounded-[var(--radius-card)] border border-border bg-surface
                        pl-10 pr-4 outline-none focus:border-primary"
@@ -408,6 +411,26 @@ function OrderRow({
     setBusy(false);
   }
 
+  async function onRestore() {
+    setBusy(true);
+    setError(null);
+    const result = await restoreOrderAction(order.id);
+    if ("error" in result && result.error) setError(result.error);
+    setBusy(false);
+  }
+
+  async function onUnassign() {
+    setBusy(true);
+    setError(null);
+    setMasterId("");
+    const result = await unassignAction(order.id);
+    if ("error" in result && result.error) {
+      setMasterId(order.master_id ?? "");
+      setError(result.error);
+    }
+    setBusy(false);
+  }
+
   async function onReopen() {
     setBusy(true);
     setError(null);
@@ -548,6 +571,19 @@ function OrderRow({
           ))}
         </select>
 
+        {masterId && canCancel && (
+          <button
+            onClick={onUnassign}
+            disabled={busy}
+            title="Снять исполнителя — заявка снова станет новой"
+            className="inline-flex items-center gap-1 text-sm text-muted
+                       underline underline-offset-4 hover:text-text"
+          >
+            <UserMinus size={14} aria-hidden />
+            Снять
+          </button>
+        )}
+
         <span className="text-sm text-muted">{SOURCE_LABEL[order.source]}</span>
 
         <span className="flex items-center gap-1">
@@ -616,6 +652,20 @@ function OrderRow({
                 Вернуть на исправление
               </button>
             )}
+          </div>
+        )}
+
+        {order.status === "canceled" && (
+          <div className="ml-auto">
+            <button
+              onClick={onRestore}
+              disabled={busy}
+              className="inline-flex h-10 items-center gap-2 rounded-[var(--radius-card)]
+                         bg-surface2 px-4 text-sm font-medium disabled:opacity-60"
+            >
+              <RotateCcw size={15} aria-hidden />
+              Вернуть в новые
+            </button>
           </div>
         )}
 

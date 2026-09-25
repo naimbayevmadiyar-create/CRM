@@ -11,7 +11,9 @@ import {
   getOrder,
   listOrderHistory,
   reopenOrder,
+  restoreOrder,
   revertCash,
+  unassignMaster,
   updateOrderDetails,
   type OrderEvent,
 } from "@/lib/db/orders";
@@ -228,5 +230,30 @@ export async function reopenOrderAction(orderId: string) {
   revalidatePath("/orders");
   revalidatePath("/my");
   revalidatePath("/analytics");
+  return { ok: true as const };
+}
+
+/** Вернуть отменённую заявку в новые: клиент передумал, заводить вторую незачем. */
+export async function restoreOrderAction(orderId: string) {
+  await requireAdmin();
+  try {
+    await restoreOrder(orderId, { role: "admin" });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось вернуть заявку" };
+  }
+  revalidatePath("/orders");
+  return { ok: true as const };
+}
+
+/** Снять исполнителя: заявка снова висит как новая. */
+export async function unassignAction(orderId: string) {
+  await requireAdmin();
+  try {
+    await unassignMaster(orderId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось снять мастера" };
+  }
+  revalidatePath("/orders");
+  revalidatePath("/my");
   return { ok: true as const };
 }

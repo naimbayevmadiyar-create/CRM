@@ -78,7 +78,18 @@ export type OrdersFilter = {
 export async function listOrdersForAdmin(filter: OrdersFilter = {}): Promise<Order[]> {
   let request = db().from("orders").select(COLUMNS);
 
-  if (filter.status === "active") {
+  const query = filter.query?.trim();
+
+  /*
+    Когда ищут — ищут везде. Закрытую заявку двухнедельной давности иначе
+    не найти: по умолчанию список показывает всё, кроме отменённых, и она
+    просто не попадает в ответ. Явно выбранный этап поиск уважает.
+  */
+  const searching = Boolean(query) && !filter.status;
+
+  if (searching) {
+    // ничего не отсекаем
+  } else if (filter.status === "active") {
     request = request.in("status", ACTIVE_STATUSES);
   } else if (filter.status === "unpaid") {
     // работа сделана, а деньги ещё не в кассе
@@ -93,7 +104,6 @@ export async function listOrdersForAdmin(filter: OrdersFilter = {}): Promise<Ord
 
   if (filter.masterId) request = request.eq("master_id", filter.masterId);
 
-  const query = filter.query?.trim();
   if (query) {
     // цифры телефона ищем отдельно: человек может ввести номер с пробелами
     const digits = query.replace(/\D/g, "");
@@ -102,7 +112,13 @@ export async function listOrdersForAdmin(filter: OrdersFilter = {}): Promise<Ord
       `address.ilike.%${query}%`,
       `problem.ilike.%${query}%`,
     ];
+
+    // по последним цифрам номера — так его и помнят
     if (digits.length >= 3) parts.push(`client_phone.ilike.%${digits}%`);
+
+    // короткое число — это номер заявки: «16» находит №16
+    if (/^\d{1,6}$/.test(query)) parts.push(`number.eq.${query}`);
+
     request = request.or(parts.join(","));
   }
 
@@ -633,5 +649,106 @@ export async function stageSummary(): Promise<StageSummary> {
     duplicatePhones: [...perPhone]
       .filter(([, count]) => count > 1)
       .map(([phone, count]) => ({ phone, count })),
+  };
+}
+
+/**
+ * Вернуть отменённую заявку в работу.
+ *
+ * Клиент отменил, через день передумал и звонит снова — заводить вторую
+ * заявку незачем: та же техника, та же поломка, та же история. Возвращается
+ * как новая и без исполнителя: кто поедет, решают заново.
+ */
+export async function restoreOrder(id: string, actor: Actor): Promise<void> {
+  const order = await getOrder(id);
+  if (!order) throw new Error("Заявка не найдена");
+  if (order.status !== "canceled") {
+    throw new Error("Возвращать в новые можно только отменённую заявку");
+  }
+
+  const { error } = await db()
+    .from("orders")
+    .update({ status: "new", master_id: null, cancel_reason: null })
+    .eq("id", id)
+    .eq("status", "canceled");
+
+  if (error) throw error;
+
+  const { data: event } = await db()
+    .from("order_events")
+    .select("id")
+    .eq("order_id", id)
+    .eq("to_status", "new")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (event) {
+    await db()
+      .from("order_events")
+      .update({ actor_role: actor.role, note: "Заявка восстановлена" })
+      .eq("id", event.id);
+  }
+}
+
+/**
+ * Снять исполнителя: заявка снова висит как новая и её видно в общем списке.
+ * Нужна, когда мастер заболел или диспетчер назначил не того.
+ */
+export async function unassignMaster(id: string): Promise<void> {
+  const order = await getOrder(id);
+  if (!order) throw new Error("Заявка не найдена");
+  if (order.status === "done" || order.status === "canceled") {
+    throw new Error("У закрытой заявки исполнителя не меняют");
+  }
+
+  const { error } = await db()
+    .from("orders")
+    .update({ master_id: null, status: "new" })
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+/** Всё, что сейчас на руках у мастера: активные и не сданные. */
+export async function listOrdersOfMaster(masterId: string): Promise<{
+  active: Order[];
+  waitingCash: Order[];
+  recentDone: Order[];
+}> {
+  const [active, waiting, done] = await Promise.all([
+    db()
+      .from("orders")
+      .select(COLUMNS)
+      .eq("master_id", masterId)
+      .in("status", ACTIVE_STATUSES)
+      .order("scheduled_at", { ascending: true, nullsFirst: false })
+      .limit(100),
+    db()
+      .from("orders")
+      .select(COLUMNS)
+      .eq("master_id", masterId)
+      .eq("status", "done")
+      .is("cash_confirmed_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(100),
+    db()
+      .from("orders")
+      .select(COLUMNS)
+      .eq("master_id", masterId)
+      .eq("status", "done")
+      .not("cash_confirmed_at", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(20),
+  ]);
+
+  if (active.error) throw active.error;
+  if (waiting.error) throw waiting.error;
+  if (done.error) throw done.error;
+
+  return {
+    active: active.data as Order[],
+    waitingCash: waiting.data as Order[],
+    recentDone: done.data as Order[],
   };
 }

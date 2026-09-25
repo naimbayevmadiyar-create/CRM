@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { KeyRound, Pencil, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -34,7 +35,8 @@ export function MastersView({
         <h1 className="text-2xl font-semibold">Мастера</h1>
         <p className="mt-1 text-muted">
           У каждого свой пароль — по нему система и понимает, кто вошёл. Зайти
-          под чужим именем нельзя.
+          под чужим именем нельзя. Нажмите на имя — увидите, чем человек занят
+          и как расписан его день.
         </p>
       </header>
 
@@ -132,7 +134,12 @@ function MasterRow({
     <li className="rounded-[var(--radius-card)] border border-border bg-surface px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1">
-          <p className="font-medium">{master.full_name}</p>
+          <Link
+            href={`/masters/${master.id}`}
+            className="font-medium underline underline-offset-4"
+          >
+            {master.full_name}
+          </Link>
           <p className="text-sm text-muted">
             {master.phone ? formatPhone(master.phone) : "телефон не указан"} ·{" "}
             доля компании {master.share_percent ?? defaultSharePercent} %
