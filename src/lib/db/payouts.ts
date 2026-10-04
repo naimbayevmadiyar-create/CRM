@@ -25,7 +25,22 @@ export async function listPayouts(from: string, to: string): Promise<Payout[]> {
     .order("paid_on", { ascending: false })
     .limit(500);
 
-  if (error) throw error;
+  /*
+    Выплаты — дополнение к аналитике, а не её основа. Если таблицы ещё нет
+    (миграцию не прогнали) или база ответила ошибкой, экран с деньгами всё
+    равно должен открыться: показываем ноль выплат, а причину кладём
+    в журнал ошибок, чтобы она не потерялась.
+  */
+  if (error) {
+    const { logError } = await import("@/lib/db/errors");
+    await logError({
+      source: "server",
+      message: `Выплаты партнёру недоступны: ${error.message}`,
+      path: "partner_payouts",
+    });
+    return [];
+  }
+
   return (data ?? []) as Payout[];
 }
 
