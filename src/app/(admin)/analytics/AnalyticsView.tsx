@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileDown } from "lucide-react";
+import { FileDown, Table } from "lucide-react";
 import dynamic from "next/dynamic";
 import { formatDuration, formatTenge, TIMEZONE } from "@/lib/format";
 import { SOURCE_LABEL, type Source } from "@/lib/source";
@@ -59,18 +59,24 @@ export function AnalyticsView({
   data,
   days,
   day,
+  range,
   taxPercent,
   partnerPercent,
   partnerName,
+  partnerPaid,
   spent,
 }: {
   data: Analytics;
   days: number;
   /** Выбран один день — тогда период не показываем, а считаем за сутки. */
   day: string | null;
+  /** Произвольный диапазон «с — по», если его вписали руками. */
+  range: { from: string; to: string } | null;
   taxPercent: number;
   partnerPercent: number;
   partnerName: string | null;
+  /** Сколько доли партнёру уже выплачено за этот период. */
+  partnerPaid: number;
   /** Расходы компании за тот же период: реклама, аренда, прочее. */
   spent: {
     total: number;
@@ -85,6 +91,19 @@ export function AnalyticsView({
     с мастерами и оплаты запчастей. Налог считается с оборота: по упрощённой
     декларации облагается весь доход, а не остаток.
   */
+  /*
+    Адреса выгрузок и отчёта должны вести на тот же кусок времени, что сейчас
+    на экране: выбран день — день, вписан диапазон — диапазон, иначе период.
+  */
+  const periodQuery = day
+    ? `day=${day}`
+    : range
+      ? `from=${range.from}&to=${range.to}`
+      : `days=${days}`;
+
+  const exportFrom = day ?? range?.from ?? dayKey(-days);
+  const exportTo = day ?? range?.to ?? dayKey();
+
   const tax = Math.round((data.turnover * taxPercent) / 100);
   const netProfit = data.company_cut - spent.total - tax;
   const partnerCut = Math.round((netProfit * partnerPercent) / 100);
@@ -125,11 +144,19 @@ export function AnalyticsView({
               </Link>
             </p>
           )}
+          {range && (
+            <p className="mt-1 text-muted">
+              С {dayTitle(range.from)} по {dayTitle(range.to)} ·{" "}
+              <Link href="/analytics" className="underline underline-offset-4">
+                вернуться к периоду
+              </Link>
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={day ? `/print/report?day=${day}` : `/print/report?days=${days}`}
+            href={`/print/report?${periodQuery}`}
             target="_blank"
             className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-card)]
                        border border-border bg-surface px-3 text-sm font-medium"
@@ -137,6 +164,25 @@ export function AnalyticsView({
             <FileDown size={15} aria-hidden className="text-muted" />
             Отчёт в PDF
           </Link>
+
+          {/* Выписки — таблицей для Excel: отчёт отвечает «сколько всего»,
+              выписка — «из чего это сложилось», строкой на заявку. */}
+          <a
+            href={`/api/export/orders?from=${exportFrom}&to=${exportTo}`}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-card)]
+                       border border-border bg-surface px-3 text-sm font-medium"
+          >
+            <Table size={15} aria-hidden className="text-muted" />
+            Выписка по заявкам
+          </a>
+          <a
+            href={`/api/export/expenses?from=${exportFrom}&to=${exportTo}`}
+            className="inline-flex h-9 items-center gap-1.5 rounded-[var(--radius-card)]
+                       border border-border bg-surface px-3 text-sm font-medium"
+          >
+            <Table size={15} aria-hidden className="text-muted" />
+            Выписка по расходам
+          </a>
         </div>
 
         <nav className="flex flex-wrap gap-1" aria-label="Период">
@@ -181,6 +227,37 @@ export function AnalyticsView({
           ))}
         </nav>
       </header>
+
+      {/* Произвольный диапазон: бухгалтерия просит «с 1-го по 15-е»,
+          а готовые 7/30/90 дней под это не подходят. */}
+      <form method="get" className="flex flex-wrap items-end gap-2">
+        <label className="block">
+          <span className="mb-1.5 block text-sm text-muted">С какого дня</span>
+          <input
+            type="date"
+            name="from"
+            defaultValue={range?.from ?? ""}
+            className="h-10 rounded-[var(--radius-card)] border border-border bg-surface px-3
+                       outline-none focus:border-primary"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-sm text-muted">По какой включительно</span>
+          <input
+            type="date"
+            name="to"
+            defaultValue={range?.to ?? ""}
+            className="h-10 rounded-[var(--radius-card)] border border-border bg-surface px-3
+                       outline-none focus:border-primary"
+          />
+        </label>
+        <button
+          type="submit"
+          className="h-10 rounded-[var(--radius-card)] bg-surface2 px-4 text-sm font-medium"
+        >
+          Показать период
+        </button>
+      </form>
 
       {data.orders === 0 && data.leads === 0 ? (
         <EmptyState
@@ -290,6 +367,23 @@ export function AnalyticsView({
                       {partnerName ? `${partnerName} · ${partnerPercent} %` : `Партнёру · ${partnerPercent} %`}
                     </p>
                     <p className="mt-1 text-2xl font-semibold">{formatTenge(partnerCut)}</p>
+
+                    {/* Отдают частями, поэтому важнее начисленного — остаток */}
+                    <dl className="mt-2 space-y-0.5 text-sm">
+                      <Line label="Выплачено" value={formatTenge(partnerPaid)} />
+                      <Line
+                        label="Осталось отдать"
+                        value={formatTenge(partnerCut - partnerPaid)}
+                        strong
+                        tone={partnerCut - partnerPaid < 0 ? "bad" : undefined}
+                      />
+                    </dl>
+                    <Link
+                      href="/expenses"
+                      className="mt-2 inline-block text-sm text-primary underline underline-offset-4"
+                    >
+                      Записать выплату
+                    </Link>
                   </div>
                   <div className="rounded-[var(--radius-card)] border border-primary/30 bg-primary/5 p-4">
                     <p className="text-sm text-muted">Вам · {100 - partnerPercent} %</p>

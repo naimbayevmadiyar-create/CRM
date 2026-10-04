@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { listExpenses, summarize } from "@/lib/db/expenses";
+import { listPayouts, payoutsTotal } from "@/lib/db/payouts";
+import { getCompany } from "@/lib/db/company";
 import { TIMEZONE } from "@/lib/format";
 import { ExpensesView } from "./ExpensesView";
 
@@ -28,7 +30,11 @@ export default async function ExpensesPage({
   const parsed = Number(days);
   const span = ALLOWED_DAYS.includes(parsed) ? parsed : 30;
 
-  const expenses = await listExpenses(localDay(-span), localDay());
+  const [expenses, payouts, company] = await Promise.all([
+    listExpenses(localDay(-span), localDay()),
+    listPayouts(localDay(-span), localDay()),
+    getCompany(),
+  ]);
   const totals = summarize(expenses);
 
   return (
@@ -38,6 +44,9 @@ export default async function ExpensesPage({
       today={localDay()}
       total={totals.total}
       byCategory={[...totals.byCategory]}
+      payouts={payouts}
+      paidOut={payoutsTotal(payouts)}
+      partnerName={company.partner_name}
     />
   );
 }

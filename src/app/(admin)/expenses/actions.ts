@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { addExpense, deleteExpense } from "@/lib/db/expenses";
+import { addPayout, deletePayout } from "@/lib/db/payouts";
 import { EXPENSE_CATEGORIES, type ExpenseCategory } from "@/lib/expenseCategory";
 
 export type ExpenseFormState = { ok?: true; error?: string };
@@ -47,6 +48,52 @@ export async function removeExpense(id: string) {
   await requireAdmin();
   try {
     await deleteExpense(id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось удалить" };
+  }
+  revalidatePath("/expenses");
+  revalidatePath("/analytics");
+  return { ok: true as const };
+}
+
+/**
+ * Выплата партнёру.
+ *
+ * Отдельно от расходов: доля уже вычтена из прибыли при расчёте, и если
+ * записать её расходом, прибыль уменьшится дважды.
+ */
+export async function createPayout(
+  _prev: ExpenseFormState,
+  formData: FormData,
+): Promise<ExpenseFormState> {
+  const session = await requireAdmin();
+
+  const amount = Number(String(formData.get("amount") ?? "").replace(/\D/g, ""));
+  if (!Number.isFinite(amount) || amount <= 0) return { error: "Впишите сумму выплаты" };
+
+  const day = String(formData.get("paid_on") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { error: "Выберите дату выплаты" };
+
+  try {
+    await addPayout({
+      paid_on: day,
+      amount: Math.trunc(amount),
+      note: String(formData.get("note") ?? ""),
+      created_by: session.masterId,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Не удалось записать выплату" };
+  }
+
+  revalidatePath("/expenses");
+  revalidatePath("/analytics");
+  return { ok: true };
+}
+
+export async function removePayout(id: string) {
+  await requireAdmin();
+  try {
+    await deletePayout(id);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Не удалось удалить" };
   }

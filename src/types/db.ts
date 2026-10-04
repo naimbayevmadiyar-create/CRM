@@ -208,6 +208,15 @@ type CompanyExpenseRow = {
   created_by: string | null;
 };
 
+type PartnerPayoutRow = {
+  id: string;
+  created_at: string;
+  paid_on: string;
+  amount: number;
+  note: string | null;
+  created_by: string | null;
+};
+
 type AppErrorRow = {
   id: number;
   created_at: string;
@@ -286,6 +295,12 @@ export type Database = {
         Row: CompanyExpenseRow;
         Insert: Optional<CompanyExpenseRow, Exclude<keyof CompanyExpenseRow, "amount">>;
         Update: Partial<CompanyExpenseRow>;
+        Relationships: [];
+      };
+      partner_payouts: {
+        Row: PartnerPayoutRow;
+        Insert: Optional<PartnerPayoutRow, Exclude<keyof PartnerPayoutRow, "amount">>;
+        Update: Partial<PartnerPayoutRow>;
         Relationships: [];
       };
       app_errors: {

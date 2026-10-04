@@ -752,3 +752,28 @@ export async function listOrdersOfMaster(masterId: string): Promise<{
     recentDone: done.data as Order[],
   };
 }
+
+/**
+ * Заявки за период для выписки.
+ *
+ * Берём и те, что завели в эти дни, и те, по которым в эти дни приняли
+ * деньги: заявка могла быть в прошлом месяце, а деньги пришли сейчас —
+ * в выписке за месяц она нужна.
+ */
+export async function listOrdersForExport(
+  fromIso: string,
+  toIso: string,
+): Promise<Order[]> {
+  const { data, error } = await db()
+    .from("orders")
+    .select(COLUMNS)
+    .or(
+      `and(created_at.gte.${fromIso},created_at.lt.${toIso}),` +
+        `and(cash_confirmed_at.gte.${fromIso},cash_confirmed_at.lt.${toIso})`,
+    )
+    .order("created_at", { ascending: true })
+    .limit(5000);
+
+  if (error) throw error;
+  return data as Order[];
+}

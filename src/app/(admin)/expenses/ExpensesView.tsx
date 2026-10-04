@@ -14,7 +14,14 @@ import {
   type ExpenseCategory,
 } from "@/lib/expenseCategory";
 import type { Expense } from "@/lib/db/expenses";
-import { createExpense, removeExpense, type ExpenseFormState } from "./actions";
+import {
+  createExpense,
+  createPayout,
+  removeExpense,
+  removePayout,
+  type ExpenseFormState,
+} from "./actions";
+import type { Payout } from "@/lib/db/payouts";
 
 const INITIAL: ExpenseFormState = {};
 
@@ -33,14 +40,21 @@ export function ExpensesView({
   today,
   total,
   byCategory,
+  payouts,
+  paidOut,
+  partnerName,
 }: {
   expenses: Expense[];
   days: number;
   today: string;
   total: number;
   byCategory: [ExpenseCategory, number][];
+  payouts: Payout[];
+  paidOut: number;
+  partnerName: string | null;
 }) {
   const [state, action, pending] = useActionState(createExpense, INITIAL);
+  const [payoutState, payoutAction, payingOut] = useActionState(createPayout, INITIAL);
 
   return (
     <div className="space-y-6">
@@ -122,6 +136,50 @@ export function ExpensesView({
         </form>
       </section>
 
+      <section className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
+        <h2 className="text-lg font-semibold">
+          Выплаты {partnerName ? partnerName : "партнёру"}
+        </h2>
+        <p className="mb-4 mt-1 text-sm text-muted">
+          Сколько доли уже отдали. За период выплачено{" "}
+          <b className="text-text">{formatTenge(paidOut)}</b>. Это не расход компании:
+          доля партнёра уже вычтена из прибыли, поэтому второй раз её не отнимаем.
+          Остаток виден в аналитике.
+        </p>
+
+        <form action={payoutAction} className="grid gap-4 sm:grid-cols-4">
+          <Field label="Дата" name="paid_on" type="date" defaultValue={today} required />
+          <Field
+            label="Сумма, ₸"
+            name="amount"
+            inputMode="numeric"
+            placeholder="200000"
+            required
+          />
+          <div className="sm:col-span-2">
+            <Field label="Комментарий" name="note" placeholder="Например: перевод Kaspi" />
+          </div>
+          <div className="sm:col-span-4">
+            <Button type="submit" disabled={payingOut}>
+              {payingOut ? "Пишем…" : "Записать выплату"}
+            </Button>
+          </div>
+          {payoutState.error && (
+            <p role="alert" className="text-sm text-danger sm:col-span-4">
+              {payoutState.error}
+            </p>
+          )}
+        </form>
+
+        {payouts.length > 0 && (
+          <ul className="mt-4 space-y-2">
+            {payouts.map((payout) => (
+              <PayoutRow key={payout.id} payout={payout} />
+            ))}
+          </ul>
+        )}
+      </section>
+
       {expenses.length === 0 ? (
         <EmptyState
           title="Расходов за период нет"
@@ -196,6 +254,60 @@ function ExpenseRow({ expense }: { expense: Expense }) {
         <p role="alert" className="w-full text-sm text-danger">
           {error}
         </p>
+      )}
+    </li>
+  );
+}
+
+function PayoutRow({ payout }: { payout: Payout }) {
+  const [busy, setBusy] = useState(false);
+  const [gone, setGone] = useState(false);
+  const [asking, setAsking] = useState(false);
+
+  if (gone) return null;
+
+  async function onDelete() {
+    setBusy(true);
+    const result = await removePayout(payout.id);
+    if ("error" in result && result.error) {
+      setBusy(false);
+      return;
+    }
+    setGone(true);
+  }
+
+  return (
+    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-card)]
+                   bg-surface2 px-4 py-2.5 text-sm">
+      <span className="w-24 shrink-0 text-muted">{shortDateRu(payout.paid_on)}</span>
+      {payout.note && <span className="text-muted">{payout.note}</span>}
+      <span className="ml-auto font-semibold">{formatTenge(payout.amount)}</span>
+
+      {asking ? (
+        <span className="flex items-center gap-2">
+          <span className="text-muted">Удалить?</span>
+          <button
+            onClick={onDelete}
+            disabled={busy}
+            className="font-medium text-danger underline underline-offset-4"
+          >
+            Да
+          </button>
+          <button
+            onClick={() => setAsking(false)}
+            className="text-muted underline underline-offset-4"
+          >
+            Нет
+          </button>
+        </span>
+      ) : (
+        <button
+          onClick={() => setAsking(true)}
+          aria-label="Удалить выплату"
+          className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-card)] text-muted"
+        >
+          <Trash2 size={15} aria-hidden />
+        </button>
       )}
     </li>
   );

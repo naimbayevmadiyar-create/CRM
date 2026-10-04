@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getAnalytics } from "@/lib/db/analytics";
 import { getCompany } from "@/lib/db/company";
 import { listExpenses, summarize } from "@/lib/db/expenses";
+import { listPayouts, payoutsTotal } from "@/lib/db/payouts";
 import { APPLIANCE_LABEL } from "@/lib/appliance";
 import { SOURCE_LABEL, type Source } from "@/lib/source";
 import { EXPENSE_CATEGORY_LABEL } from "@/lib/expenseCategory";
@@ -16,6 +17,49 @@ import "../print.css";
 export const metadata: Metadata = { title: "Отчёт по аналитике" };
 
 const ALLOWED_DAYS = [7, 30, 90];
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Какой кусок времени показываем.
+ *
+ * Три варианта: быстрый период в днях, один день и произвольный диапазон
+ * «с — по». Диапазон главнее: его вписали руками, значит именно он и нужен.
+ * Границы — по Астане, оба дня включительно.
+ */
+function resolvePeriod(params: { days?: string; day?: string; from?: string; to?: string }) {
+  const span = ALLOWED_DAYS.includes(Number(params.days)) ? Number(params.days) : 30;
+
+  if (DAY.test(params.from ?? "") && DAY.test(params.to ?? "") && params.from! <= params.to!) {
+    return {
+      span,
+      day: null as string | null,
+      from: new Date(`${params.from}T00:00:00+05:00`),
+      to: new Date(new Date(`${params.to}T00:00:00+05:00`).getTime() + 86_400_000),
+      range: { from: params.from as string, to: params.to as string },
+    };
+  }
+
+  if (DAY.test(params.day ?? "")) {
+    const start = new Date(`${params.day}T00:00:00+05:00`);
+    return {
+      span,
+      day: params.day as string,
+      from: start,
+      to: new Date(start.getTime() + 86_400_000),
+      range: null as { from: string; to: string } | null,
+    };
+  }
+
+  const to = new Date();
+  return {
+    span,
+    day: null as string | null,
+    from: new Date(to.getTime() - span * 86_400_000),
+    to,
+    range: null as { from: string; to: string } | null,
+  };
+}
 
 function localDay(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -37,27 +81,20 @@ export default async function ReportPage({
   searchParams,
 }: {
   // в Next 16 searchParams — промис
-  searchParams: Promise<{ days?: string; day?: string }>;
+  searchParams: Promise<{ days?: string; day?: string; from?: string; to?: string }>;
 }) {
   await requireAdmin();
-  const { days, day } = await searchParams;
+  const params = await searchParams;
+  const { span, day: chosenDay, from, to, range } = resolvePeriod(params);
 
-  const parsed = Number(days);
-  const span = ALLOWED_DAYS.includes(parsed) ? parsed : 30;
-  const chosenDay = /^\d{4}-\d{2}-\d{2}$/.test(day ?? "") ? (day as string) : null;
-
-  const to = chosenDay
-    ? new Date(new Date(`${chosenDay}T00:00:00+05:00`).getTime() + 24 * 60 * 60 * 1000)
-    : new Date();
-  const from = chosenDay
-    ? new Date(`${chosenDay}T00:00:00+05:00`)
-    : new Date(to.getTime() - span * 24 * 60 * 60 * 1000);
-
-  const [data, company, expenses] = await Promise.all([
+  const [data, company, expenses, payouts] = await Promise.all([
     getAnalytics(from.toISOString(), to.toISOString()),
     getCompany(),
     listExpenses(localDay(from), localDay(new Date(to.getTime() - 1))),
+    listPayouts(localDay(from), localDay(new Date(to.getTime() - 1))),
   ]);
+
+  const partnerPaid = payoutsTotal(payouts);
 
   const spent = summarize(expenses);
   const spentByDay = new Map(spent.byDay);
@@ -70,9 +107,15 @@ export default async function ReportPage({
 
   const period = chosenDay
     ? longDateRu(`${chosenDay}T12:00:00+05:00`)
-    : `${shortDateRu(from.toISOString())} — ${shortDateRu(to.toISOString())}`;
+    : `${shortDateRu(from.toISOString())} — ${shortDateRu(
+        new Date(to.getTime() - 1).toISOString(),
+      )}`;
 
-  const backHref = chosenDay ? `/analytics?day=${chosenDay}` : `/analytics?days=${span}`;
+  const backHref = chosenDay
+    ? `/analytics?day=${chosenDay}`
+    : range
+      ? `/analytics?from=${range.from}&to=${range.to}`
+      : `/analytics?days=${span}`;
 
   return (
     <div className="print-page">
@@ -83,7 +126,7 @@ export default async function ReportPage({
           company={company}
           subtitle="Отчёт по работе сервиса"
           title="Отчёт"
-          number={chosenDay ? "за день" : `за ${span} дней`}
+          number={chosenDay ? "за день" : range ? "за период" : `за ${span} дней`}
           date={period}
         />
 
@@ -151,6 +194,11 @@ export default async function ReportPage({
                 <Row
                   label={`${company.partner_name ?? "Партнёру"} · ${company.partner_share_percent} %`}
                   value={formatTenge(partnerCut)}
+                />
+                <Row label="  из них выплачено" value={formatTenge(partnerPaid)} />
+                <Row
+                  label="  осталось отдать"
+                  value={formatTenge(partnerCut - partnerPaid)}
                 />
                 <Row
                   label={`Владельцу · ${100 - company.partner_share_percent} %`}
