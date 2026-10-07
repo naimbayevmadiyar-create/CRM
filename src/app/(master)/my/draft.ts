@@ -1,4 +1,4 @@
-import type { DraftItem } from "./ItemsEditor";
+import { DEFAULT_WARRANTY, type DraftItem } from "./ItemsEditor";
 import type { ExpensesPayer } from "@/lib/settlement";
 
 /**
@@ -28,12 +28,19 @@ export function readDraft(orderId: string): Draft | null {
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<Draft>;
     if (typeof value.total !== "number" || !Array.isArray(value.items)) return null;
+
+    // старые черновики писались без срока гарантии
+    const items = value.items.map((item) => ({
+      ...item,
+      warrantyMonths:
+        typeof item?.warrantyMonths === "number" ? item.warrantyMonths : DEFAULT_WARRANTY,
+    }));
     return {
       total: value.total,
       expenses: typeof value.expenses === "number" ? value.expenses : 0,
       expensesNote: typeof value.expensesNote === "string" ? value.expensesNote : "",
       expensesPayer: value.expensesPayer === "master" ? "master" : "company",
-      items: value.items,
+      items,
     };
   } catch {
     return null;

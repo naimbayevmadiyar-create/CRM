@@ -9,7 +9,21 @@ export type DraftItem = {
   title: string;
   price: number;
   quantity: number;
+  /** Гарантия на эту работу, месяцев. Ноль — без гарантии. */
+  warrantyMonths: number;
 };
+
+/*
+  Двенадцать месяцев сервис даёт редко, а раньше они проставлялись всем
+  работам молча. Поэтому срок выбирает мастер, а по умолчанию стоит
+  осторожное значение.
+*/
+export const WARRANTY_CHOICES = [0, 1, 3, 6, 12] as const;
+export const DEFAULT_WARRANTY = 3;
+
+export function warrantyLabel(months: number): string {
+  return months === 0 ? "без гарантии" : `${months} мес.`;
+}
 
 /**
  * Перечень выполненных работ.
@@ -38,7 +52,10 @@ export function ItemsEditor({
   function addTitle(title: string) {
     const clean = title.trim();
     if (!clean) return;
-    onChange([...items, { title: clean, price: 0, quantity: 1 }]);
+    onChange([
+      ...items,
+      { title: clean, price: 0, quantity: 1, warrantyMonths: DEFAULT_WARRANTY },
+    ]);
   }
 
   function patch(index: number, change: Partial<DraftItem>) {
@@ -71,43 +88,62 @@ export function ItemsEditor({
       {items.length > 0 && (
         <ul className="mb-3 space-y-2">
           {items.map((item, index) => (
-            <li key={index} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-sm">{item.title}</span>
+            <li key={index} className="rounded-[var(--radius-card)] bg-surface2 p-2">
+              <div className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 text-sm">{item.title}</span>
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  aria-label={`Убрать: ${item.title}`}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center
+                             rounded-[var(--radius-card)] text-muted"
+                >
+                  <X size={16} aria-hidden />
+                </button>
+              </div>
 
-              <input
-                value={item.price || ""}
-                onChange={(e) =>
-                  patch(index, { price: Number(e.target.value.replace(/\D/g, "")) || 0 })
-                }
-                inputMode="numeric"
-                placeholder="цена"
-                aria-label={`Цена: ${item.title}`}
-                className="h-10 w-24 rounded-[var(--radius-card)] border border-border
-                           bg-surface px-2 text-right outline-none focus:border-primary"
-              />
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={item.price || ""}
+                  onChange={(e) =>
+                    patch(index, { price: Number(e.target.value.replace(/\D/g, "")) || 0 })
+                  }
+                  inputMode="numeric"
+                  placeholder="цена"
+                  aria-label={`Цена: ${item.title}`}
+                  className="h-10 w-24 rounded-[var(--radius-card)] border border-border
+                             bg-surface px-2 text-right outline-none focus:border-primary"
+                />
 
-              <input
-                value={item.quantity}
-                onChange={(e) =>
-                  patch(index, {
-                    quantity: Math.max(1, Number(e.target.value.replace(/\D/g, "")) || 1),
-                  })
-                }
-                inputMode="numeric"
-                aria-label={`Количество: ${item.title}`}
-                className="h-10 w-12 rounded-[var(--radius-card)] border border-border
-                           bg-surface px-2 text-center outline-none focus:border-primary"
-              />
+                <input
+                  value={item.quantity}
+                  onChange={(e) =>
+                    patch(index, {
+                      quantity: Math.max(1, Number(e.target.value.replace(/\D/g, "")) || 1),
+                    })
+                  }
+                  inputMode="numeric"
+                  aria-label={`Количество: ${item.title}`}
+                  className="h-10 w-12 rounded-[var(--radius-card)] border border-border
+                             bg-surface px-2 text-center outline-none focus:border-primary"
+                />
 
-              <button
-                type="button"
-                onClick={() => remove(index)}
-                aria-label={`Убрать: ${item.title}`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center
-                           rounded-[var(--radius-card)] text-muted"
-              >
-                <X size={16} aria-hidden />
-              </button>
+                <select
+                  value={item.warrantyMonths}
+                  onChange={(e) =>
+                    patch(index, { warrantyMonths: Number(e.target.value) })
+                  }
+                  aria-label={`Гарантия: ${item.title}`}
+                  className="h-10 min-w-0 flex-1 rounded-[var(--radius-card)] border border-border
+                             bg-surface px-2 outline-none focus:border-primary"
+                >
+                  {WARRANTY_CHOICES.map((months) => (
+                    <option key={months} value={months}>
+                      Гарантия: {warrantyLabel(months)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </li>
           ))}
         </ul>

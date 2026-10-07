@@ -43,6 +43,8 @@ export function ExpensesView({
   payouts,
   paidOut,
   partnerName,
+  partnerPercent,
+  accrued,
 }: {
   expenses: Expense[];
   days: number;
@@ -52,6 +54,9 @@ export function ExpensesView({
   payouts: Payout[];
   paidOut: number;
   partnerName: string | null;
+  partnerPercent: number;
+  /** Сколько доли начислено за этот же период. */
+  accrued: number;
 }) {
   const [state, action, pending] = useActionState(createExpense, INITIAL);
   const [payoutState, payoutAction, payingOut] = useActionState(createPayout, INITIAL);
@@ -140,12 +145,25 @@ export function ExpensesView({
         <h2 className="text-lg font-semibold">
           Выплаты {partnerName ? partnerName : "партнёру"}
         </h2>
-        <p className="mb-4 mt-1 text-sm text-muted">
-          Сколько доли уже отдали. За период выплачено{" "}
-          <b className="text-text">{formatTenge(paidOut)}</b>. Это не расход компании:
-          доля партнёра уже вычтена из прибыли, поэтому второй раз её не отнимаем.
-          Остаток виден в аналитике.
+        <p className="mb-3 mt-1 text-sm text-muted">
+          Это не расход компании: доля партнёра уже вычтена из прибыли, поэтому
+          второй раз её не отнимаем.
         </p>
+
+        {/* Главная цифра здесь — не выплаченное, а остаток: его и держат в голове */}
+        <dl className="mb-4 grid gap-3 sm:grid-cols-3">
+          <Figure
+            label={`Начислено за период · ${partnerPercent} %`}
+            value={formatTenge(accrued)}
+          />
+          <Figure label="Выплачено" value={formatTenge(paidOut)} />
+          <Figure
+            label={accrued - paidOut < 0 ? "Переплата" : "Осталось отдать"}
+            value={formatTenge(Math.abs(accrued - paidOut))}
+            strong
+            bad={accrued - paidOut < 0}
+          />
+        </dl>
 
         <form action={payoutAction} className="grid gap-4 sm:grid-cols-4">
           <Field label="Дата" name="paid_on" type="date" defaultValue={today} required />
@@ -310,5 +328,36 @@ function PayoutRow({ payout }: { payout: Payout }) {
         </button>
       )}
     </li>
+  );
+}
+
+function Figure({
+  label,
+  value,
+  strong,
+  bad,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+  bad?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "rounded-[var(--radius-card)] p-4 " +
+        (strong ? "border border-primary/30 bg-primary/5" : "bg-surface2")
+      }
+    >
+      <dt className="text-sm text-muted">{label}</dt>
+      <dd
+        className={
+          "mt-1 text-xl font-semibold " +
+          (bad ? "text-danger" : strong ? "text-primary" : "")
+        }
+      >
+        {value}
+      </dd>
+    </div>
   );
 }

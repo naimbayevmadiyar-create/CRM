@@ -363,20 +363,24 @@ export function AnalyticsView({
               {partnerPercent > 0 && (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[var(--radius-card)] bg-surface2 p-4">
+                    {/* Крупно — долг, а не начисленное: начисленное считается само,
+                        а помнить человеку нужно, сколько он ещё должен отдать. */}
                     <p className="text-sm text-muted">
-                      {partnerName ? `${partnerName} · ${partnerPercent} %` : `Партнёру · ${partnerPercent} %`}
+                      {partnerName ? `${partnerName} · ${partnerPercent} %` : `Партнёру · ${partnerPercent} %`}{" "}
+                      · {partnerCut - partnerPaid < 0 ? "переплата" : "осталось отдать"}
                     </p>
-                    <p className="mt-1 text-2xl font-semibold">{formatTenge(partnerCut)}</p>
+                    <p
+                      className={
+                        "mt-1 text-2xl font-semibold " +
+                        (partnerCut - partnerPaid < 0 ? "text-danger" : "")
+                      }
+                    >
+                      {formatTenge(Math.abs(partnerCut - partnerPaid))}
+                    </p>
 
-                    {/* Отдают частями, поэтому важнее начисленного — остаток */}
                     <dl className="mt-2 space-y-0.5 text-sm">
+                      <Line label="Начислено за период" value={formatTenge(partnerCut)} />
                       <Line label="Выплачено" value={formatTenge(partnerPaid)} />
-                      <Line
-                        label="Осталось отдать"
-                        value={formatTenge(partnerCut - partnerPaid)}
-                        strong
-                        tone={partnerCut - partnerPaid < 0 ? "bad" : undefined}
-                      />
                     </dl>
                     <Link
                       href="/expenses"

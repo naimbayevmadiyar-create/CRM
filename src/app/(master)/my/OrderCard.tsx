@@ -41,6 +41,8 @@ export type MasterOrder = {
   problem: string | null;
   status: Status;
   scheduled_at: string | null;
+  brand: string | null;
+  model: string | null;
   total_amount: number | null;
   expenses: number;
   expenses_note: string | null;
@@ -66,6 +68,9 @@ export function OrderCard({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(order.client_name ?? "");
   const [address, setAddress] = useState(order.address ?? "");
+  // марку и модель мастер читает с таблички на технике — в заявке их обычно нет
+  const [brand, setBrand] = useState(order.brand ?? "");
+  const [model, setModel] = useState(order.model ?? "");
   const [saved, setSaved] = useState(false);
 
   const label = masterButtonLabel(status);
@@ -103,7 +108,7 @@ export function OrderCard({
     setError(null);
     setSaved(false);
     startTransition(async () => {
-      const result = await saveClient(order.id, { clientName: name, address });
+      const result = await saveClient(order.id, { clientName: name, address, brand, model });
       if (result.error) setError(result.error);
       else {
         setSaved(true);
@@ -124,7 +129,11 @@ export function OrderCard({
         </span>
       </div>
 
-      <p className="text-muted">{APPLIANCE_LABEL[order.appliance]}</p>
+      <p className="text-muted">
+        {APPLIANCE_LABEL[order.appliance]}
+        {brand ? `, ${brand}` : ""}
+        {model ? ` ${model}` : ""}
+      </p>
 
       {order.scheduled_at && (
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-surface2 px-2.5 py-1 text-sm">
@@ -155,6 +164,24 @@ export function OrderCard({
                        bg-surface px-3 outline-none focus:border-primary"
           />
           <div className="flex gap-2">
+            <input
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder="Марка: LG, Bosch"
+              aria-label="Марка техники"
+              className="h-12 min-w-0 flex-1 rounded-[var(--radius-card)] border border-border
+                         bg-surface px-3 outline-none focus:border-primary"
+            />
+            <input
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="Модель"
+              aria-label="Модель техники"
+              className="h-12 min-w-0 flex-1 rounded-[var(--radius-card)] border border-border
+                         bg-surface px-3 outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex gap-2">
             <Button className="flex-1" onClick={onSaveClient} disabled={pending}>
               Сохранить
             </Button>
@@ -171,7 +198,7 @@ export function OrderCard({
                      underline underline-offset-4"
         >
           {saved ? <Check size={14} aria-hidden /> : <Pencil size={14} aria-hidden />}
-          {saved ? "Данные сохранены" : "Уточнить ФИО и адрес"}
+          {saved ? "Данные сохранены" : "Уточнить ФИО, адрес и технику"}
         </button>
       )}
 

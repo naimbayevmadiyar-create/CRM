@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { listExpenses, summarize } from "@/lib/db/expenses";
 import { listPayouts, payoutsTotal } from "@/lib/db/payouts";
 import { getCompany } from "@/lib/db/company";
+import { getAnalytics } from "@/lib/db/analytics";
 import { TIMEZONE } from "@/lib/format";
 import { ExpensesView } from "./ExpensesView";
 
@@ -30,12 +31,25 @@ export default async function ExpensesPage({
   const parsed = Number(days);
   const span = ALLOWED_DAYS.includes(parsed) ? parsed : 30;
 
-  const [expenses, payouts, company] = await Promise.all([
+  const from = new Date(`${localDay(-span)}T00:00:00+05:00`);
+
+  const [expenses, payouts, company, data] = await Promise.all([
     listExpenses(localDay(-span), localDay()),
     listPayouts(localDay(-span), localDay()),
     getCompany(),
+    getAnalytics(from.toISOString(), new Date().toISOString()),
   ]);
+
   const totals = summarize(expenses);
+
+  /*
+    Доля партнёра считается от чистой прибыли: касса минус расходы компании
+    и налог. Та же формула, что в аналитике, — цифры на двух экранах должны
+    сходиться до тенге.
+  */
+  const tax = Math.round((data.turnover * company.tax_percent) / 100);
+  const netProfit = data.company_cut - totals.total - tax;
+  const accrued = Math.round((netProfit * company.partner_share_percent) / 100);
 
   return (
     <ExpensesView
@@ -47,6 +61,8 @@ export default async function ExpensesPage({
       payouts={payouts}
       paidOut={payoutsTotal(payouts)}
       partnerName={company.partner_name}
+      partnerPercent={company.partner_share_percent}
+      accrued={accrued}
     />
   );
 }

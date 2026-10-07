@@ -79,6 +79,7 @@ export default async function MyOrdersPage() {
                   title: item.title,
                   price: item.price,
                   quantity: item.quantity,
+                  warrantyMonths: item.warranty_months,
                 }))}
                 sharePercent={sharePercent}
               />

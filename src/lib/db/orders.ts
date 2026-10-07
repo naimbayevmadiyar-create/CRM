@@ -368,14 +368,15 @@ export async function listClosedOrdersForMaster(
 }
 
 /**
- * Уточнение данных клиента.
+ * Уточнение данных на месте.
  *
- * Мастер на месте узнаёт настоящее имя и точный адрес — телефон и техника
- * при этом не трогаются: их меняет только диспетчер.
+ * Мастер узнаёт настоящее имя, точный адрес и видит табличку на технике:
+ * марку с моделью в заявке обычно не знают. Телефон и вид техники при этом
+ * не трогаются — их меняет диспетчер.
  */
 export async function updateClientDetails(
   id: string,
-  patch: { client_name?: string; address?: string },
+  patch: { client_name?: string; address?: string; brand?: string; model?: string },
   actor: Actor,
 ): Promise<void> {
   const order = await getOrder(id);
@@ -389,6 +390,9 @@ export async function updateClientDetails(
     .update({
       client_name: patch.client_name?.trim() || null,
       address: patch.address?.trim() || null,
+      // марку и модель мастер видит на месте — в заявке их часто нет
+      brand: patch.brand?.trim() || null,
+      model: patch.model?.trim() || null,
     })
     .eq("id", id);
 

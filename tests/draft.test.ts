@@ -18,8 +18,8 @@ const draft = {
   expensesNote: "",
   expensesPayer: "company" as const,
   items: [
-    { title: "Диагностика", price: 10000, quantity: 1 },
-    { title: "Ремонт модуля управления", price: 45000, quantity: 1 },
+    { title: "Диагностика", price: 10000, quantity: 1, warrantyMonths: 0 },
+    { title: "Ремонт модуля управления", price: 45000, quantity: 1, warrantyMonths: 3 },
   ],
 };
 
@@ -48,6 +48,14 @@ describe("черновик отчёта", () => {
 
     store.set("cs_draft_order-1", JSON.stringify({ total: "много" }));
     expect(readDraft("order-1")).toBeNull();
+  });
+
+  it("старый черновик без срока гарантии получает осторожные три месяца", () => {
+    store.set(
+      "cs_draft_order-1",
+      JSON.stringify({ ...draft, items: [{ title: "Чистка", price: 5000, quantity: 1 }] }),
+    );
+    expect(readDraft("order-1")?.items[0].warrantyMonths).toBe(3);
   });
 
   it("старый черновик без пометки о расходе считает его расходом компании", () => {

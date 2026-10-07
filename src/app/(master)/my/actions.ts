@@ -24,6 +24,18 @@ import { getInvoice, markInvoicePaid } from "@/lib/db/invoices";
 
 export type ActionResult = { ok?: true; error?: string };
 
+type DraftLine = { title: string; price: number; quantity: number; warrantyMonths: number };
+
+/** Срок гарантии приходит с телефона — в базе он лежит в месяцах у позиции. */
+function toItems(items: DraftLine[]) {
+  return items.map((item) => ({
+    title: item.title,
+    price: item.price,
+    quantity: item.quantity,
+    warranty_months: Math.max(0, Math.trunc(item.warrantyMonths) || 0),
+  }));
+}
+
 /** Чужие значения с клиента не принимаем: расход по умолчанию — деньги компании. */
 function payer(value: string): ExpensesPayer {
   return (EXPENSES_PAYERS as readonly string[]).includes(value)
@@ -57,7 +69,7 @@ export type FinishReport = {
   expensesNote?: string;
   expensesPayer: string;
   paymentMethod: string;
-  items?: { title: string; price: number; quantity: number }[];
+  items?: { title: string; price: number; quantity: number; warrantyMonths: number }[];
 };
 
 /**
@@ -103,7 +115,7 @@ export async function finish(
       actor,
     );
     if (report.items?.length) {
-      await replaceOrderItems(orderId, report.items);
+      await replaceOrderItems(orderId, toItems(report.items));
     }
     await advanceOrderStatus(orderId, "done", actor);
   } catch (e) {
@@ -123,14 +135,19 @@ export async function finish(
  */
 export async function saveClient(
   orderId: string,
-  patch: { clientName: string; address: string },
+  patch: { clientName: string; address: string; brand: string; model: string },
 ): Promise<ActionResult> {
   const session = await requireMaster();
 
   try {
     await updateClientDetails(
       orderId,
-      { client_name: patch.clientName, address: patch.address },
+      {
+        client_name: patch.clientName,
+        address: patch.address,
+        brand: patch.brand,
+        model: patch.model,
+      },
       { id: session.masterId, role: "master" },
     );
   } catch (e) {
@@ -206,7 +223,7 @@ export type DraftReport = {
   expenses: number;
   expensesNote?: string;
   expensesPayer: string;
-  items: { title: string; price: number; quantity: number }[];
+  items: { title: string; price: number; quantity: number; warrantyMonths: number }[];
 };
 
 /**
@@ -231,7 +248,7 @@ export async function saveProgress(
       },
       actor,
     );
-    await replaceOrderItems(orderId, draft.items);
+    await replaceOrderItems(orderId, toItems(draft.items));
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Не удалось сохранить" };
   }
